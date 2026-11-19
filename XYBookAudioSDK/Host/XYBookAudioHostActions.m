@@ -2,7 +2,48 @@
 #import "XYBookAudioHostActions.h"
 #import "XYBookAudioMessageProtocol.h"
 #import "XYBookAudioLogger.h"
-static NSTimeInterval const XYBookAudioHostUITimeout = 180;
+
+static NSTimeInterval const XYBookAudioHostRequestTimeout = 180;
+typedef void (^XYBookAudioHostReply)(id result, NSError *error);
+
+/// 宿主回调与超时都在主线程结算，首次结算后释放业务回调。登录的身份刷新可处理迟到结果。
+static XYBookAudioHostReply XYBookAudioMakeHostReply(NSString *timeoutMessage, dispatch_block_t didReply,
+                                                     XYBookAudioHostReply completion) {
+    __block XYBookAudioHostReply pending = [completion copy];
+    XYBookAudioHostReply reply = ^(id result, NSError *error) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            if (didReply) {
+                didReply();
+            }
+            XYBookAudioHostReply finish = pending;
+            pending = nil;
+            if (finish) {
+                finish(result, error);
+            }
+        });
+    };
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, XYBookAudioHostRequestTimeout * NSEC_PER_SEC),
+                   dispatch_get_main_queue(), ^{
+                       if (pending) {
+                           reply(nil, XYBookAudioError(XYBookAudioHostFailed, timeoutMessage));
+                       }
+                   });
+    return reply;
+}
+
+static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
+    switch (result) {
+        case XYBookAudioShareAccepted:
+            return XYBookAudioValueAccepted;
+        case XYBookAudioShareUnsupported:
+            return XYBookAudioValueUnsupported;
+        case XYBookAudioShareCancelled:
+            return XYBookAudioValueCancelled;
+        case XYBookAudioShareFailed:
+            return XYBookAudioValueFailed;
+    }
+    return XYBookAudioValueFailed;
+}
 
 @interface XYBookAudioHostActions ()
 
@@ -101,24 +142,14 @@ static NSTimeInterval const XYBookAudioHostUITimeout = 180;
         return;
     }
     NSString *userId = [self.host bookAudioUserIdentity].userId;
-    __block BOOL settled = NO;
-    void (^resolve)(NSDictionary *, NSError *) = ^(NSDictionary *userInfo, NSError *hostError) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (settled) {
-                return;
-            }
-            settled = YES;
+    XYBookAudioHostReply reply =
+        XYBookAudioMakeHostReply(@"Host user-info request timed out.", nil, ^(id userInfo, NSError *hostError) {
             NSError *error = [self userInfoResultError:userInfo hostError:hostError expectedUserId:userId];
             completion(error ? nil : userInfo, error);
         });
-    };
-    [self.host bookAudioUserInfoUsingTicket:usingTicket completion:resolve];
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, XYBookAudioHostUITimeout * NSEC_PER_SEC), dispatch_get_main_queue(),
-                   ^{
-                       if (!settled) {
-                           resolve(nil, XYBookAudioError(XYBookAudioHostFailed, @"Host user-info request timed out."));
-                       }
-                   });
+    [self.host bookAudioUserInfoUsingTicket:usingTicket completion:^(NSDictionary *userInfo, NSError *hostError) {
+        reply(userInfo, hostError);
+    }];
 }
 
 /// 只检查资料是否仍属于当前账号及 JSON 可用性；具体字段由宿主和 H5 标准约定。
@@ -194,16 +225,15 @@ static NSTimeInterval const XYBookAudioHostUITimeout = 180;
     }
     self.loginPending = YES;
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost message:@"Login requested from host."];
-    __block BOOL settled = NO;
-    void (^resolve)(XYBookAudioLoginResult, NSError *) = ^(XYBookAudioLoginResult result, NSError *hostError) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (self.identityChanged && !self.disposed) {
-                self.identityChanged();
-            }
-            if (settled) {
-                return;
-            }
-            settled = YES;
+    __weak typeof(self) weakSelf = self;
+    dispatch_block_t refreshIdentity = ^{
+        dispatch_block_t identityChanged = weakSelf.identityChanged;
+        if (identityChanged && !weakSelf.disposed) {
+            identityChanged();
+        }
+    };
+    XYBookAudioHostReply reply =
+        XYBookAudioMakeHostReply(@"Host login timed out.", refreshIdentity, ^(id response, NSError *hostError) {
             self.loginPending = NO;
             if (hostError) {
                 [self.logger error:hostError component:XYBookAudioLogHost operation:@"Login"];
@@ -222,25 +252,22 @@ static NSTimeInterval const XYBookAudioHostUITimeout = 180;
                 completion(nil, identityError);
                 return;
             }
-            BOOL valid = result == XYBookAudioLoginLoggedIn && [identity[XYBookAudioKeyIsLoggedIn] boolValue];
-            NSString *status = valid                                 ? XYBookAudioValueLoggedIn
-                               : result == XYBookAudioLoginCancelled ? XYBookAudioValueCancelled
-                                                                     : XYBookAudioValueFailed;
-            if (hostError || identityError) {
-                status = XYBookAudioValueFailed;
+            XYBookAudioLoginResult result = [response integerValue];
+            NSString *status = XYBookAudioValueFailed;
+            if (!hostError) {
+                if (result == XYBookAudioLoginLoggedIn && [identity[XYBookAudioKeyIsLoggedIn] boolValue]) {
+                    status = XYBookAudioValueLoggedIn;
+                } else if (result == XYBookAudioLoginCancelled) {
+                    status = XYBookAudioValueCancelled;
+                }
             }
             [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost
                        message:[@"Login result: " stringByAppendingString:status]];
             completion(@{XYBookAudioKeyStatus : status, XYBookAudioKeyIdentity : identity}, nil);
         });
-    };
-    [self.host bookAudioRequestLoginFrom:presenter completion:resolve];
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, XYBookAudioHostUITimeout * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            if (!settled) {
-                resolve(XYBookAudioLoginFailed, XYBookAudioError(XYBookAudioHostFailed, @"Host login timed out."));
-            }
-        });
+    [self.host bookAudioRequestLoginFrom:presenter completion:^(XYBookAudioLoginResult result, NSError *hostError) {
+        reply(@(result), hostError);
+    }];
 }
 
 /// 先验证分享字段再交给宿主；仅透传公开分享契约，回执不承诺第三方平台分享完成。
@@ -263,13 +290,8 @@ static NSTimeInterval const XYBookAudioHostUITimeout = 180;
     }
     self.sharePending = YES;
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost message:@"Share requested from host."];
-    __block BOOL settled = NO;
-    void (^resolve)(XYBookAudioShareResult, NSError *) = ^(XYBookAudioShareResult result, NSError *hostError) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (settled) {
-                return;
-            }
-            settled = YES;
+    XYBookAudioHostReply reply =
+        XYBookAudioMakeHostReply(@"Host sharing timed out.", nil, ^(id response, NSError *hostError) {
             self.sharePending = NO;
             if (hostError) {
                 [self.logger error:hostError component:XYBookAudioLogHost operation:@"Share"];
@@ -278,23 +300,16 @@ static NSTimeInterval const XYBookAudioHostUITimeout = 180;
                 completion(nil, XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
                 return;
             }
-            NSString *status = hostError                               ? XYBookAudioValueFailed
-                               : result == XYBookAudioShareAccepted    ? XYBookAudioValueAccepted
-                               : result == XYBookAudioShareUnsupported ? XYBookAudioValueUnsupported
-                               : result == XYBookAudioShareCancelled   ? XYBookAudioValueCancelled
-                                                                       : XYBookAudioValueFailed;
+            XYBookAudioShareResult result = hostError ? XYBookAudioShareFailed : [response integerValue];
+            NSString *status = XYBookAudioShareStatus(result);
             [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost
                        message:[@"Share result: " stringByAppendingString:status]];
             completion(@{XYBookAudioKeyStatus : status}, nil);
         });
-    };
-    [self.host bookAudioShare:[parameters copy] from:presenter completion:resolve];
-    dispatch_after(
-        dispatch_time(DISPATCH_TIME_NOW, XYBookAudioHostUITimeout * NSEC_PER_SEC), dispatch_get_main_queue(), ^{
-            if (!settled) {
-                resolve(XYBookAudioShareFailed, XYBookAudioError(XYBookAudioHostFailed, @"Host sharing timed out."));
-            }
-        });
+    [self.host bookAudioShare:[parameters copy] from:presenter
+                   completion:^(XYBookAudioShareResult result, NSError *hostError) {
+                       reply(@(result), hostError);
+                   }];
 }
 
 /// 终止宿主动作入口并移除身份刷新回调；已有异步请求随后以终止状态结算。

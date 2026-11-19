@@ -109,13 +109,13 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
         [self reportInvalidRequest:@"JSCallNative JSON exceeds the message length limit."];
         return;
     }
-    NSError *error = nil;
-    id request = [NSJSONSerialization JSONObjectWithData:[object dataUsingEncoding:NSUTF8StringEncoding] options:0
-                                                   error:&error];
-    if (![request isKindOfClass:NSDictionary.class]) {
+    id message = [NSJSONSerialization JSONObjectWithData:[object dataUsingEncoding:NSUTF8StringEncoding] options:0
+                                                   error:nil];
+    if (![message isKindOfClass:NSDictionary.class]) {
         [self reportInvalidRequest:@"Malformed request object."];
         return;
     }
+    NSDictionary *request = message;
     NSString *action = request[XYBookAudioKeyActionName];
     if (![self.class supportsAction:action]) {
         [self reportActionError:XYBookAudioError(XYBookAudioUnsupported, @"Unsupported H5 action.") request:request
@@ -139,16 +139,17 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
         return;
     }
     // 无业务参数的方法允许省略 parameters；需要字段的方法继续由各自业务能力校验。
-    NSMutableDictionary *message = [request mutableCopy];
     if (!parameters) {
-        message[XYBookAudioKeyParameters] = @{};
+        NSMutableDictionary *normalizedRequest = [request mutableCopy];
+        normalizedRequest[XYBookAudioKeyParameters] = @{};
+        request = normalizedRequest;
     }
     SEL selector = NSSelectorFromString([action stringByAppendingString:@":"]);
     NSMethodSignature *signature = [self methodSignatureForSelector:selector];
     NSInvocation *invocation = [NSInvocation invocationWithMethodSignature:signature];
     invocation.target = self;
     invocation.selector = selector;
-    [invocation setArgument:&message atIndex:2];
+    [invocation setArgument:&request atIndex:2];
     [invocation invoke];
 }
 
@@ -158,12 +159,6 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
 
 /// 与原项目同名；无参数时也允许关闭，只关闭当前可见窗口，不扩展 H5 回调。
 - (void)xhCloseWindow:(NSDictionary *)request {
-    id parameters = request[XYBookAudioKeyParameters];
-    if (parameters && ![parameters isKindOfClass:NSDictionary.class]) {
-        [self logWindowError:XYBookAudioError(XYBookAudioInvalidArgument, @"Window parameters must be an object.")
-                      action:XYBookAudioActionCloseWindow];
-        return;
-    }
     if (![self hasWindowContextForAction:XYBookAudioActionCloseWindow]) {
         return;
     }
@@ -173,13 +168,7 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
 
 /// 与原项目一致从完整请求的 parameters 中取 url；可信范围由窗口容器统一检查。
 - (void)xhOpenWindow:(NSDictionary *)request {
-    id parameters = request[XYBookAudioKeyParameters];
-    if (![parameters isKindOfClass:NSDictionary.class]) {
-        [self logWindowError:XYBookAudioError(XYBookAudioInvalidArgument, @"Window parameters must be an object.")
-                      action:XYBookAudioActionOpenWindow];
-        return;
-    }
-    id address = parameters[XYBookAudioKeyURL];
+    id address = request[XYBookAudioKeyParameters][XYBookAudioKeyURL];
     NSURL *URL = XYBookAudioString(address) ? [NSURL URLWithString:address] : nil;
     if (!URL.scheme.length) {
         [self logWindowError:XYBookAudioError(XYBookAudioInvalidArgument,
@@ -223,12 +212,11 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
 /// 沿用原版 xinhua-sdk 的 {data:1/0} 能力查询返回值。
 - (void)xhCanIUse:(NSDictionary *)request {
     NSString *callback = request[XYBookAudioKeyCallbackActionName];
-    id parameters = request[XYBookAudioKeyParameters];
-    if (!XYBookAudioString(callback) || ![parameters isKindOfClass:NSDictionary.class]) {
+    if (!callback) {
         [self reportInvalidRequest:@"actionName, parameters and callbackActionName are required."];
         return;
     }
-    NSString *method = parameters[XYBookAudioKeyName];
+    NSString *method = request[XYBookAudioKeyParameters][XYBookAudioKeyName];
     BOOL supported = [self.class supportsAction:method];
     [self send:callback parameters:@{XYBookAudioKeyData : @(supported ? 1 : 0)} generation:self.generation];
 }
@@ -246,8 +234,7 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
 
 /// xh.getUserInfo 会继续查询系统资料；设备标识必须来自宿主，不能由 SDK 临时生成。
 - (void)xhGetSystemInfo:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionGetSystemInfo parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionGetSystemInfo request:request];
 }
 
 /// 原样回传宿主标准用户资料；goLogin 需要当前页面可展示宿主 UI，useTicket 由宿主处理。
@@ -260,8 +247,7 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
                      generation:self.generation];
         return;
     }
-    [self.SDK executeAction:XYBookAudioActionGetUserInfo parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionGetUserInfo request:request];
 }
 
 /// 标准分享菜单不承诺业务成功；仅在宿主确认已选渠道且存在回调名时回传空对象。
@@ -291,68 +277,57 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
 
 /// 设置章节队列；由播放会话校验字段并原子替换。
 - (void)xhBookAudioSetQueue:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionSetQueue parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionSetQueue request:request];
 }
 
 /// 请求播放当前章；身份准入与音源加载由播放会话处理。
 - (void)xhBookAudioPlay:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionPlay parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionPlay request:request];
 }
 
 /// 暂停当前播放，保留队列与断点。
 - (void)xhBookAudioPause:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionPause parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionPause request:request];
 }
 
 /// 停止当前播放并清除定时器。
 - (void)xhBookAudioStop:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionStop parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionStop request:request];
 }
 
 /// 按 positionMs 跳转进度，已知时长时限制在章节范围内。
 - (void)xhBookAudioSeekTo:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionSeekTo parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionSeekTo request:request];
 }
 
 /// 选择上一章并尝试播放；章节边界由会话检查。
 - (void)xhBookAudioPrevious:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionPrevious parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionPrevious request:request];
 }
 
 /// 选择下一章并尝试播放；到达队尾时沿用会话规则。
 - (void)xhBookAudioNext:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionNext parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionNext request:request];
 }
 
 /// 按 chapterId 选择章节，受限章节由会话拦截。
 - (void)xhBookAudioSelectChapter:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionSelectChapter parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionSelectChapter request:request];
 }
 
 /// 设置倍速，合法值由共享播放规则检查。
 - (void)xhBookAudioSetRate:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionSetRate parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionSetRate request:request];
 }
 
 /// 设置定时关闭；非法参数不得覆盖已有定时。
 - (void)xhBookAudioSetSleepTimer:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionSetSleepTimer parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionSetSleepTimer request:request];
 }
 
 /// 取消当前定时关闭，不改变播放。
 - (void)xhBookAudioCancelSleepTimer:(NSDictionary *)request {
-    [self.SDK executeAction:XYBookAudioActionCancelSleepTimer parameters:request[XYBookAudioKeyParameters]
-                 completion:[self callbackForRequest:request]];
+    [self forwardAction:XYBookAudioActionCancelSleepTimer request:request];
 }
 
 /// 每个文档只订阅一次，随后立即发送快照；重复订阅不会累积事件接收器。
@@ -401,7 +376,12 @@ static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024
 
 #pragma mark - H5 回调
 
-/// 仅适配业务完成回调，不分发动作、不校验版本、不做请求去重；异步结果绑定发起时的文档。
+- (void)forwardAction:(NSString *)action request:(NSDictionary *)request {
+    [self.SDK executeAction:action parameters:request[XYBookAudioKeyParameters]
+                 completion:[self callbackForRequest:request]];
+}
+
+/// 异步结果只发回发起请求的文档。
 - (XYBookAudioCompletion)callbackForRequest:(NSDictionary *)request {
     NSUInteger generation = self.generation;
     __weak typeof(self) weakSelf = self;

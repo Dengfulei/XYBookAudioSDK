@@ -93,7 +93,6 @@
                           : ([queue.chapters[index].chapterId isEqual:checkpoint[XYBookAudioKeyChapterId]]
                                  ? [checkpoint[XYBookAudioKeyPositionMs] doubleValue]
                                  : 0);
-    [self save];
     [self yieldPlayback];
     [self.engine clear];
     if (![self.queue.bookId isEqual:queue.bookId]) {
@@ -148,14 +147,17 @@
         return;
     }
     if (self.media.active) {
-        NSError *activationError;
-        if (![self.media acquire:&activationError]) {
+        if (![self.media acquire:nil]) {
             completion(nil, XYBookAudioError(XYBookAudioPlaybackFailed, @"Unable to reactivate the audio session."));
             return;
         }
         [self startCurrentChapter:completion afterHandoff:NO];
         return;
     }
+    [self requestAudioHandoff:completion];
+}
+
+- (void)requestAudioHandoff:(XYBookAudioCompletion)completion {
     id<XYBookAudioHost> host = self.host;
     if (!host) {
         completion(nil, XYBookAudioError(XYBookAudioHostFailed, @"Host has been released."));
@@ -195,8 +197,7 @@
             }
             return;
         }
-        NSError *audioError;
-        if (![session.media acquire:&audioError]) {
+        if (![session.media acquire:nil]) {
             [session.media cancelPlaybackReservation:reservation];
             [weakHost bookAudioDidReleasePlayback];
             finish(nil, XYBookAudioError(XYBookAudioPlaybackFailed, @"Unable to activate the system audio session."));

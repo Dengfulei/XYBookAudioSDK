@@ -90,8 +90,8 @@
 }
 
 /// 只记录已实现的动作名称；完整参数、回执和未知动作不进入诊断，原始 completion 的结果保持不变。
-- (XYBookAudioCompletion)loggedCompletionForAction:(NSString *)action completion:(XYBookAudioCompletion)completion {
-    NSString *operation = [XYBookAudioWebBridge supportsAction:action] ? action : @"Command";
+- (XYBookAudioCompletion)loggedCompletionForOperation:(NSString *)operation
+                                           completion:(XYBookAudioCompletion)completion {
     XYBookAudioLogger *logger = self.logger;
     return ^(NSDictionary *result, NSError *error) {
         if (error) {
@@ -109,7 +109,8 @@
            parameters:(NSDictionary *)parameters
            completion:(XYBookAudioCompletion)completion {
     NSParameterAssert(NSThread.isMainThread);
-    completion = [self loggedCompletionForAction:action completion:completion];
+    BOOL supported = [XYBookAudioWebBridge supportsAction:action];
+    completion = [self loggedCompletionForOperation:supported ? action : @"Command" completion:completion];
     if (self.disposed) {
         completion(nil, XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
         return;
@@ -119,7 +120,7 @@
             nil, XYBookAudioError(XYBookAudioInvalidArgument, @"An action string and parameters object are required."));
         return;
     }
-    if (![XYBookAudioWebBridge supportsAction:action]) {
+    if (!supported) {
         [self.logger write:XYBookAudioLogLevelWarning component:XYBookAudioLogSDK
                    message:@"Unsupported command rejected."];
         completion(nil, XYBookAudioError(XYBookAudioUnsupported, @"Unsupported action."));
@@ -133,16 +134,17 @@
         completion(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"Page actions must originate from an H5 page."));
         return;
     }
+    UIViewController *presenter = self.navigation.topViewController;
     if ([action isEqual:XYBookAudioActionGetSystemInfo]) {
-        [self.hostActions getSystemInfoFrom:self.navigation.topViewController completion:completion];
+        [self.hostActions getSystemInfoFrom:presenter completion:completion];
         return;
     }
     if ([action isEqual:XYBookAudioActionGetUserInfo]) {
-        [self.hostActions getUserInfo:parameters presenter:self.navigation.topViewController completion:completion];
+        [self.hostActions getUserInfo:parameters presenter:presenter completion:completion];
         return;
     }
     if ([action isEqual:XYBookAudioActionShowShareMenu]) {
-        [self.hostActions showShareMenu:parameters presenter:self.navigation.topViewController completion:completion];
+        [self.hostActions showShareMenu:parameters presenter:presenter completion:completion];
         return;
     }
     // 新增通用 H5 方法不一定是播放命令，必须先确认前缀，不能按固定长度截取任意方法名。
