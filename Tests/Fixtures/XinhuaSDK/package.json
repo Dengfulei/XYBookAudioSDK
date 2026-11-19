@@ -1,0 +1,59 @@
+{
+  "name": "xinhua-sdk",
+  "version": "1.15.8",
+  "scripts": {
+    "start:xinhua-sdk": "xymmCli start custom.project=xinhua-sdk",
+    "start:xinhua-cloud-sdk": "xymmCli start custom.project=xinhua-cloud-sdk",
+    "build:xinhua-sdk-demo": "xymmCli build custom.project=xinhua-sdk-demo",
+    "build:xinhua-sdk": "xymmCli build custom.project=xinhua-sdk",
+    "build:xinhua-cloud-sdk": "xymmCli build custom.project=xinhua-cloud-sdk",
+    "sync": "xymmCli sync",
+    "prettier": "prettier --write 'src/**/*.{js,jsx,ts,tsx,scss,less,md,json}'"
+  },
+  "main": "xinhua-sdk/xinhua-sdk.js",
+  "author": "mqyun",
+  "license": "ISC",
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,scss,less,md,json}": [
+      "prettier --write"
+    ],
+    "*.ts?(x)": [
+      "prettier --parser=typescript --write"
+    ]
+  },
+  "commitlint": {
+    "extends": [
+      "@commitlint/config-conventional"
+    ]
+  },
+  "devDependencies": {
+    "@rematch/core": "^1.4.0",
+    "@rematch/immer": "^1.2.0",
+    "@rematch/loading": "^1.2.1",
+    "@rematch/updated": "^0.1.5",
+    "@types/react": "^17.0.0",
+    "@types/react-dom": "^17.0.0",
+    "@types/react-redux": "^7.1.18",
+    "@types/react-router-dom": "^5.1.5",
+    "antd": "^5.25.2",
+    "axios": "^1.9.0",
+    "cloud-xinyi": "^5.3.3",
+    "crypto-js": "^4.1.1",
+    "hox": "^1.1.4",
+    "immutability-helper": "^3.0.2",
+    "react": "^17.0.1",
+    "react-dom": "^17.0.1",
+    "react-redux": "^7.2.0",
+    "react-router-dom": "^5.2.0",
+    "redux": "^4.0.5",
+    "typescript": "4.2.4",
+    "vconsole": "^3.14.7",
+    "xymm-cli": "^2.4.5"
+  }
+}

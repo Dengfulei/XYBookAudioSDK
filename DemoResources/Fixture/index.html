@@ -1,0 +1,15 @@
+<!doctype html>
+<!-- 本地联调页面仅使用公开桥接接口，不承载正式内容与购买业务。 -->
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>听书集成验证</title><link rel="stylesheet" href="style.css"></head>
+<body><main><p class="eyebrow">XYBookAudioSDK · 本地验证</p><h1>听见下一章</h1>
+<p>三段本地合成音频，用于验证原生播放。账号与分享使用示例宿主能力。</p>
+<section><h2 id="chapter">尚未设置队列</h2><p id="state">正在连接原生…</p><progress id="progress" value="0" max="1"></progress><p id="time">00:00 / --:--</p>
+<div class="controls"><button data-action="xhBookAudioPrevious">上一章</button><button data-action="xhBookAudioPlay" class="primary">播放</button><button data-action="xhBookAudioPause">暂停</button><button data-action="xhBookAudioNext">下一章</button><button data-action="xhBookAudioStop">停止</button></div>
+<label>进度 <input id="seek" type="range" min="0" max="4000" value="0" step="100"></label>
+<label>倍速 <select id="rate"><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>1.75</option><option>2</option></select></label></section>
+<section><h2>内容与身份</h2><div class="controls"><button id="free">载入免费书</button><button id="paid">载入含登录章节的书</button><button id="login">请求登录</button><button id="share">分享链接</button></div><p id="identity">游客</p></section>
+<section><h2>定时关闭</h2><label>选项 <select id="timer"><option value="off">不开启</option><option value="1">播完当前音频</option><option value="2">播完 2 个</option><option value="3">播完 3 个</option><option value="custom">自定义个数</option><option value="900000">15 分钟</option><option value="1800000">30 分钟</option><option value="5000">5 秒（验证）</option></select></label>
+<label>自定义个数 <input id="count" type="number" min="1" step="1" value="2"></label><button id="applyTimer">应用设置</button><p id="timerState">未开启</p></section>
+<section><h2>协议回执</h2><pre id="log" aria-live="polite"></pre></section>
+</main><footer>关闭页面后原生继续播放；重新打开会读取原有快照。</footer><script src="fixture.js"></script></body></html>

@@ -1,0 +1,6 @@
+Pods/
+build/
+Products/
+*.log
+.DS_Store
+**/xcuserdata/

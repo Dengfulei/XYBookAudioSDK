@@ -1,0 +1,27 @@
+# SDK、示例宿主与 XCTest 源码共用的 Objective-C 格式规范。
+BasedOnStyle: LLVM
+Language: ObjC
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ObjCBlockIndentWidth: 4
+ObjCBreakBeforeNestedBlockParam: false
+UseTab: Never
+ColumnLimit: 120
+BreakBeforeBraces: Attach
+# 所有条件和循环语句都保留大括号，单条语句也不省略。
+InsertBraces: true
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+IndentCaseLabels: true
+ObjCSpaceAfterProperty: true
+PointerAlignment: Right
+SeparateDefinitionBlocks: Always
+MaxEmptyLinesToKeep: 1
+KeepEmptyLinesAtTheStartOfBlocks: false
+SortIncludes: Never
+BreakStringLiterals: false
+ReflowComments: false
+InsertNewlineAtEOF: true
