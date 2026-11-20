@@ -81,7 +81,8 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
     if (self.entryURL.isFileURL) {
         return [self allowsLocalURL:URL];
     }
-    if (!XYBookAudioHTTPS(URL.absoluteString) || ![self.trustedOrigins containsObject:XYBookAudioOrigin(URL)]) {
+    if (!XYBookAudioIsHTTPSURLString(URL.absoluteString) ||
+        ![self.trustedOrigins containsObject:XYBookAudioOrigin(URL)]) {
         return NO;
     }
     NSString *path = URL.path.length ? URL.path.stringByStandardizingPath : @"/";
@@ -108,7 +109,7 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
 }
 
 - (BOOL)allowsMediaURL:(NSURL *)URL {
-    return XYBookAudioHTTPS(URL.absoluteString) || (self.entryURL.isFileURL && [self allowsLocalURL:URL]);
+    return XYBookAudioIsHTTPSURLString(URL.absoluteString) || (self.entryURL.isFileURL && [self allowsLocalURL:URL]);
 }
 
 - (BOOL)validate:(NSError **)error {

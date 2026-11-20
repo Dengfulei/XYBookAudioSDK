@@ -158,7 +158,7 @@ static NSUUID *XYBookAudioLatestPlaybackReservation;
     [self bind:center.previousTrackCommand action:XYBookAudioCommandPrevious];
     [self bind:center.changePlaybackPositionCommand action:XYBookAudioCommandSeekTo];
     [self bind:center.changePlaybackRateCommand action:XYBookAudioCommandSetRate];
-    center.changePlaybackRateCommand.supportedPlaybackRates = XYBookAudioRates();
+    center.changePlaybackRateCommand.supportedPlaybackRates = XYBookAudioSupportedPlaybackRates();
 }
 
 /// 仅在持有音频时写锁屏快照；按章节位置启用前后切章，不接收或记录音源地址。

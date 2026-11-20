@@ -2,6 +2,7 @@
 #import "XYBookAudioLogger.h"
 #import "XYBookAudioBridgeWebView.h"
 #import "XYBookAudioMessageProtocol.h"
+#import "XYBookAudioSDKManager.h"
 #import "XYBookAudioWindowRouting.h"
 
 @interface XYBookAudioWebBridge : NSObject

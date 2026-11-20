@@ -73,7 +73,7 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
         }
         return nil;
     }
-    return @{XYBookAudioKeyIsLoggedIn : @(identity.isLoggedIn), XYBookAudioKeyUserId : identity.userId};
+    return @{XYBookAudioKeyIsLoggedIn : @(identity.isLoggedIn), XYBookAudioKeyUserID : identity.userId};
 }
 
 /// 系统资料和设备标识属于宿主；只校验 JSON 边界，不伪造缺失字段。
@@ -276,11 +276,13 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
 - (void)share:(NSDictionary *)parameters
      presenter:(UIViewController *)presenter
     completion:(XYBookAudioCompletion)completion {
-    if (!XYBookAudioString(parameters[XYBookAudioKeyTitle]) || !XYBookAudioHTTPS(parameters[XYBookAudioKeyLink]) ||
-        (parameters[XYBookAudioKeyDesc] && ![parameters[XYBookAudioKeyDesc] isKindOfClass:NSString.class]) ||
-        (parameters[XYBookAudioKeyImageURL] &&
-         (![parameters[XYBookAudioKeyImageURL] isKindOfClass:NSString.class] ||
-          ([parameters[XYBookAudioKeyImageURL] length] && !XYBookAudioHTTPS(parameters[XYBookAudioKeyImageURL]))))) {
+    if (!XYBookAudioIsNonEmptyString(parameters[XYBookAudioKeyTitle]) ||
+        !XYBookAudioIsHTTPSURLString(parameters[XYBookAudioKeyLink]) ||
+        (parameters[XYBookAudioKeyDescription] &&
+         ![parameters[XYBookAudioKeyDescription] isKindOfClass:NSString.class]) ||
+        (parameters[XYBookAudioKeyImageURL] && (![parameters[XYBookAudioKeyImageURL] isKindOfClass:NSString.class] ||
+                                                ([parameters[XYBookAudioKeyImageURL] length] &&
+                                                 !XYBookAudioIsHTTPSURLString(parameters[XYBookAudioKeyImageURL]))))) {
         completion(nil,
                    XYBookAudioError(XYBookAudioInvalidArgument,
                                     @"Sharing requires title and an HTTPS link; desc and HTTPS imgUrl are optional."));
@@ -296,16 +298,16 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
     id link = parameters[@"link"], description = parameters[@"description"], image = parameters[@"imageUrl"];
     id platform = parameters[@"platform"];
     NSCharacterSet *whitespace = NSCharacterSet.whitespaceAndNewlineCharacterSet;
-    if (!XYBookAudioString(title) || ![title stringByTrimmingCharactersInSet:whitespace].length ||
-        !XYBookAudioSnckURL(link) || (description && ![description isKindOfClass:NSString.class]) ||
+    if (!XYBookAudioIsNonEmptyString(title) || ![title stringByTrimmingCharactersInSet:whitespace].length ||
+        !XYBookAudioParseSnckURL(link) || (description && ![description isKindOfClass:NSString.class]) ||
         (image && (![image isKindOfClass:NSString.class] ||
-                   ([image stringByTrimmingCharactersInSet:whitespace].length && !XYBookAudioSnckURL(image)))) ||
+                   ([image stringByTrimmingCharactersInSet:whitespace].length && !XYBookAudioParseSnckURL(image)))) ||
         (platform && ![platform isKindOfClass:NSString.class])) {
-        completion(nil, XYBookAudioSnckError(4101, @"Invalid share parameters."));
+        completion(nil, XYBookAudioMakeSnckError(4101, @"Invalid share parameters."));
         return;
     }
     if (![self.host respondsToSelector:@selector(bookAudioShare:from:completion:)]) {
-        completion(nil, XYBookAudioSnckError(4107, @"Host sharing is unavailable."));
+        completion(nil, XYBookAudioMakeSnckError(4107, @"Host sharing is unavailable."));
         return;
     }
     NSError *error = [self presentationError:presenter];
@@ -314,7 +316,7 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
         return;
     }
     NSMutableDictionary *request = [@{@"title" : title, @"link" : link, @"desc" : description ?: @""} mutableCopy];
-    if (XYBookAudioSnckURL(image)) {
+    if (XYBookAudioParseSnckURL(image)) {
         request[XYBookAudioKeyImageURL] = image;
     }
     if (platform) {
@@ -334,7 +336,7 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
     self.sharePending = YES;
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost message:@"Share requested from host."];
     NSString *requestId = snck ? NSUUID.UUID.UUIDString : nil;
-    NSError *timeout = snck ? XYBookAudioSnckError(4105, @"Host sharing timed out.")
+    NSError *timeout = snck ? XYBookAudioMakeSnckError(4105, @"Host sharing timed out.")
                             : XYBookAudioError(XYBookAudioHostFailed, @"Host sharing timed out.");
     XYBookAudioHostReply reply = XYBookAudioMakeHostReply(
         snck ? 120 : XYBookAudioHostRequestTimeout, timeout, nil, ^(id response, NSError *hostError) {
@@ -358,8 +360,8 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
                     completion(@{@"requestId" : requestId, @"status" : status}, nil);
                 } else {
                     NSInteger code = result == XYBookAudioShareUnsupported ? 4107 : 4109;
-                    completion(nil,
-                               hostError == timeout ? timeout : XYBookAudioSnckError(code, @"Host sharing failed."));
+                    completion(nil, hostError == timeout ? timeout
+                                                         : XYBookAudioMakeSnckError(code, @"Host sharing failed."));
                 }
                 return;
             }

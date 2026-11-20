@@ -6,7 +6,7 @@
 @implementation XYBookAudioQueue
 
 + (instancetype)queueWithSnckParameters:(NSDictionary *)parameters error:(NSError **)error {
-    NSArray *items = parameters[@"items"];
+    NSArray *items = parameters[XYBookAudioKeyItems];
     if (![items isKindOfClass:NSArray.class] || items.count < 1 || items.count > 200) {
         if (error) {
             *error = XYBookAudioError(XYBookAudioInvalidArgument, @"items must contain 1–200 audio items.");
@@ -25,12 +25,12 @@
         NSString *author = item[@"author"];
         NSString *mimeType = item[@"mimeType"];
         BOOL validTitle =
-            XYBookAudioString(title) &&
+            XYBookAudioIsNonEmptyString(title) &&
             [title stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length;
         BOOL validCover =
-            !cover || ([cover isKindOfClass:NSString.class] && (!cover.length || XYBookAudioSnckURL(cover)));
-        if (!XYBookAudioString(identifier) || [identifiers containsObject:identifier] || !validTitle ||
-            !XYBookAudioSnckURL(url) || !validCover || (author && ![author isKindOfClass:NSString.class]) ||
+            !cover || ([cover isKindOfClass:NSString.class] && (!cover.length || XYBookAudioParseSnckURL(cover)));
+        if (!XYBookAudioIsNonEmptyString(identifier) || [identifiers containsObject:identifier] || !validTitle ||
+            !XYBookAudioParseSnckURL(url) || !validCover || (author && ![author isKindOfClass:NSString.class]) ||
             (mimeType && ![mimeType isKindOfClass:NSString.class])) {
             if (error) {
                 *error = XYBookAudioError(XYBookAudioInvalidArgument, @"Invalid or duplicate audio item.");
@@ -51,9 +51,10 @@
     }
     NSNumber *startIndex = parameters[@"startIndex"] ?: @0;
     NSNumber *autoPlay = parameters[@"autoPlay"] ?: @NO;
-    BOOL validOptions = XYBookAudioNumber(startIndex, 0, chapters.count - 1, YES) &&
+    BOOL validOptions = XYBookAudioIsNumberInRange(startIndex, 0, chapters.count - 1, YES) &&
                         CFGetTypeID((__bridge CFTypeRef)autoPlay) == CFBooleanGetTypeID();
-    NSDictionary *queueParameters = @{@"items" : normalizedItems, @"startIndex" : startIndex, @"autoPlay" : autoPlay};
+    NSDictionary *queueParameters =
+        @{XYBookAudioKeyItems : normalizedItems, @"startIndex" : startIndex, @"autoPlay" : autoPlay};
     NSData *encodedQueue = validOptions ? [NSJSONSerialization dataWithJSONObject:queueParameters
                                                                           options:NSJSONWritingWithoutEscapingSlashes
                                                                             error:nil]
@@ -77,7 +78,8 @@
         return NO;
     }
     NSDictionary *chapter = value;
-    if (!XYBookAudioString(chapter[XYBookAudioKeyChapterId]) || !XYBookAudioString(chapter[XYBookAudioKeyTitle])) {
+    if (!XYBookAudioIsNonEmptyString(chapter[XYBookAudioKeyChapterID]) ||
+        !XYBookAudioIsNonEmptyString(chapter[XYBookAudioKeyTitle])) {
         return NO;
     }
     id requiresLogin = chapter[XYBookAudioKeyRequiresLogin];
@@ -87,23 +89,24 @@
     if (chapter[XYBookAudioKeyAudioURL] && ![self validSource:chapter[XYBookAudioKeyAudioURL]]) {
         return NO;
     }
-    return !chapter[XYBookAudioKeyDurationMs] || XYBookAudioNumber(chapter[XYBookAudioKeyDurationMs], 1, DBL_MAX, NO);
+    return !chapter[XYBookAudioKeyDurationMs] ||
+           XYBookAudioIsNumberInRange(chapter[XYBookAudioKeyDurationMs], 1, DBL_MAX, NO);
 }
 
 /// 此处只校验音源格式；替换会话前还必须按配置检查本地目录边界和当前身份。
 + (BOOL)validSource:(id)value {
-    if (XYBookAudioHTTPS(value)) {
+    if (XYBookAudioIsHTTPSURLString(value)) {
         return YES;
     }
-    return XYBookAudioString(value) && [NSURL URLWithString:value].isFileURL;
+    return XYBookAudioIsNonEmptyString(value) && [NSURL URLWithString:value].isFileURL;
 }
 
 + (instancetype)queueWithParameters:(NSDictionary *)parameters error:(NSError **)error {
     NSArray *chapters = parameters[XYBookAudioKeyChapters];
-    BOOL valid = XYBookAudioString(parameters[XYBookAudioKeyBookId]) &&
-                 XYBookAudioString(parameters[XYBookAudioKeyTitle]) && [chapters isKindOfClass:NSArray.class] &&
-                 chapters.count > 0;
-    if (parameters[XYBookAudioKeyCoverURL] && !XYBookAudioHTTPS(parameters[XYBookAudioKeyCoverURL])) {
+    BOOL valid = XYBookAudioIsNonEmptyString(parameters[XYBookAudioKeyBookID]) &&
+                 XYBookAudioIsNonEmptyString(parameters[XYBookAudioKeyTitle]) &&
+                 [chapters isKindOfClass:NSArray.class] && chapters.count > 0;
+    if (parameters[XYBookAudioKeyCoverURL] && !XYBookAudioIsHTTPSURLString(parameters[XYBookAudioKeyCoverURL])) {
         valid = NO;
     }
     if (!valid) {
@@ -116,18 +119,18 @@
     NSMutableSet *identifiers = [NSMutableSet set];
     NSMutableArray *models = [NSMutableArray array];
     for (id chapter in chapters) {
-        if (![self validChapter:chapter] || [identifiers containsObject:chapter[XYBookAudioKeyChapterId]]) {
+        if (![self validChapter:chapter] || [identifiers containsObject:chapter[XYBookAudioKeyChapterID]]) {
             if (error) {
                 *error = XYBookAudioError(XYBookAudioInvalidArgument,
                                           @"Invalid or duplicate chapter; requiresLogin must be a JSON boolean.");
             }
             return nil;
         }
-        [identifiers addObject:chapter[XYBookAudioKeyChapterId]];
+        [identifiers addObject:chapter[XYBookAudioKeyChapterID]];
         [models addObject:[XYBookAudioChapter yy_modelWithDictionary:chapter]];
     }
     XYBookAudioQueue *queue = [self new];
-    queue->_bookId = [parameters[XYBookAudioKeyBookId] copy];
+    queue->_bookId = [parameters[XYBookAudioKeyBookID] copy];
     queue->_title = [parameters[XYBookAudioKeyTitle] copy];
     queue->_coverURL = [parameters[XYBookAudioKeyCoverURL] copy];
     queue->_chapters = [models copy];

@@ -1,6 +1,7 @@
 // 通过原子 JSON 文件持久化断点；目录名使用摘要隔离业务标识，资源地址和临时授权不得落盘。
 #import "XYBookAudioCheckpointStore.h"
 #import "XYBookAudioMessageProtocol.h"
+#import "XYBookAudioTypes.h"
 #import <CommonCrypto/CommonDigest.h>
 #import <stdio.h>
 
@@ -56,9 +57,9 @@ static NSString *XYBookAudioStorageKey(NSString *value) {
         return nil;
     }
     id result = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    if ([result isKindOfClass:NSDictionary.class] && [result[XYBookAudioKeyBookId] isEqual:book] &&
-        XYBookAudioString(result[XYBookAudioKeyChapterId]) &&
-        XYBookAudioNumber(result[XYBookAudioKeyPositionMs], 0, DBL_MAX, NO)) {
+    if ([result isKindOfClass:NSDictionary.class] && [result[XYBookAudioKeyBookID] isEqual:book] &&
+        XYBookAudioIsNonEmptyString(result[XYBookAudioKeyChapterID]) &&
+        XYBookAudioIsNumberInRange(result[XYBookAudioKeyPositionMs], 0, DBL_MAX, NO)) {
         return result;
     }
     NSURL *quarantine = [file URLByAppendingPathExtension:@"corrupt"];
@@ -86,8 +87,8 @@ static NSString *XYBookAudioStorageKey(NSString *value) {
         return NO;
     }
     NSData *data = [NSJSONSerialization dataWithJSONObject:@{
-        XYBookAudioKeyBookId : book,
-        XYBookAudioKeyChapterId : chapter,
+        XYBookAudioKeyBookID : book,
+        XYBookAudioKeyChapterID : chapter,
         XYBookAudioKeyPositionMs : @(position)
     }
                                                    options:0

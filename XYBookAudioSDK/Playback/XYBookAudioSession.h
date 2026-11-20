@@ -1,6 +1,7 @@
 // 页面和原生入口共用的播放会话；主线程持有队列、身份、进度与定时状态，不依赖页面存活。
 #import "XYBookAudioLogger.h"
 #import "XYBookAudioMessageProtocol.h"
+#import "XYBookAudioSDKManager.h"
 
 @interface XYBookAudioSession : NSObject
 

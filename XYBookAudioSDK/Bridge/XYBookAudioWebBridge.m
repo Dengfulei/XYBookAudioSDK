@@ -7,16 +7,35 @@ static NSUInteger const XYBookAudioSnckMaximumMessageLength = 80 * 1024;
 /// 中文 UTF-8 经两次 URI 编码最多放大 15 倍；传输限额为原 JSON 限额预留编码与消息头空间。
 static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024;
 
+static NSString *const XYBookAudioSnckEventUserChanged = @"snckUserChanged";
+static NSString *const XYBookAudioSnckEventQueueChanged = @"snckAudioQueueChanged";
+static NSString *const XYBookAudioSnckEventStateChanged = @"snckAudioStateChanged";
+static NSString *const XYBookAudioSnckEventTimerChanged = @"snckAudioTimerChanged";
+static NSString *const XYBookAudioSnckEventProgress = @"snckAudioProgress";
+static NSString *const XYBookAudioSnckEventAudioError = @"snckAudioError";
+
+static NSString *const XYBookAudioSnckReasonQueueReplaced = @"queue_replaced";
+static NSString *const XYBookAudioSnckReasonStopped = @"stopped";
+static NSString *const XYBookAudioSnckReasonItemChanged = @"item_changed";
+static NSString *const XYBookAudioSnckReasonPlaybackStateChanged = @"playback_state_changed";
+static NSString *const XYBookAudioSnckReasonTimerSet = @"timer_set";
+static NSString *const XYBookAudioSnckReasonItemCompleted = @"item_completed";
+static NSString *const XYBookAudioSnckReasonQueueEnded = @"queue_ended";
+static NSString *const XYBookAudioSnckReasonTimerExpired = @"timer_expired";
+static NSString *const XYBookAudioSnckReasonProgress = @"progress";
+static NSString *const XYBookAudioSnckReasonPageResumed = @"page_resumed";
+static NSString *const XYBookAudioSnckReasonPlaybackFailed = @"playback_failed";
+
 static NSString *XYBookAudioSnckTimerReason(XYBookAudioTimerChange change) {
     switch (change) {
         case XYBookAudioTimerChangeSet:
-            return @"timer_set";
+            return XYBookAudioSnckReasonTimerSet;
         case XYBookAudioTimerChangeItemCompleted:
-            return @"item_completed";
+            return XYBookAudioSnckReasonItemCompleted;
         case XYBookAudioTimerChangeQueueEnded:
-            return @"queue_ended";
+            return XYBookAudioSnckReasonQueueEnded;
         case XYBookAudioTimerChangeExpired:
-            return @"timer_expired";
+            return XYBookAudioSnckReasonTimerExpired;
     }
 }
 
@@ -32,7 +51,7 @@ static BOOL XYBookAudioIsLegacyInfoAction(NSString *action) {
 }
 
 static SEL XYBookAudioH5Selector(id action) {
-    if (!XYBookAudioString(action) || [action containsString:@":"]) {
+    if (!XYBookAudioIsNonEmptyString(action) || [action containsString:@":"]) {
         return NULL;
     }
     if (![action hasPrefix:XYBookAudioSnckMethodPrefix] && ![action isEqual:XYBookAudioActionCanIUse] &&
@@ -151,7 +170,7 @@ static SEL XYBookAudioH5Selector(id action) {
     NSDictionary *request = message;
     NSString *action = request[XYBookAudioKeyActionName];
     id callback = request[XYBookAudioKeyCallbackActionName];
-    if (callback && !XYBookAudioString(callback)) {
+    if (callback && !XYBookAudioIsNonEmptyString(callback)) {
         NSString *errorMessage = @"callbackActionName must be a nonempty string when provided.";
         if (XYBookAudioIsLegacyInfoAction(action)) {
             [self answerRequest:request result:nil error:XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
@@ -164,9 +183,9 @@ static SEL XYBookAudioH5Selector(id action) {
     SEL selector = XYBookAudioH5Selector(action);
     NSMethodSignature *signature = selector ? [self methodSignatureForSelector:selector] : nil;
     if (!signature) {
-        NSError *error = XYBookAudioString(action) ? XYBookAudioSnckError(-3, @"Unsupported SNCK action.")
-                                                   : XYBookAudioSnckError(-2, @"actionName is required.");
-        [self send:callback parameters:XYBookAudioSnckErrorPayload(error) generation:self.generation];
+        NSError *error = XYBookAudioIsNonEmptyString(action) ? XYBookAudioMakeSnckError(-3, @"Unsupported SNCK action.")
+                                                             : XYBookAudioMakeSnckError(-2, @"actionName is required.");
+        [self send:callback parameters:XYBookAudioMakeSnckErrorPayload(error) generation:self.generation];
         return;
     }
     id parameters = request[XYBookAudioKeyParameters];
@@ -179,7 +198,7 @@ static SEL XYBookAudioH5Selector(id action) {
         } else {
             NSError *error = XYBookAudioIsLegacyInfoAction(action)
                                  ? XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
-                                 : XYBookAudioSnckError(-2, errorMessage);
+                                 : XYBookAudioMakeSnckError(-2, errorMessage);
             [self answerRequest:request result:nil error:error generation:self.generation];
         }
         return;
@@ -187,7 +206,7 @@ static SEL XYBookAudioH5Selector(id action) {
     if (!self.SDK) {
         NSString *errorMessage = @"The SDK is unavailable.";
         NSError *error = XYBookAudioIsLegacyInfoAction(action) ? XYBookAudioError(XYBookAudioDisposed, errorMessage)
-                                                              : XYBookAudioSnckError(4102, errorMessage);
+                                                               : XYBookAudioMakeSnckError(4102, errorMessage);
         [self answerRequest:request result:nil error:error generation:self.generation];
         return;
     }
@@ -216,7 +235,7 @@ static SEL XYBookAudioH5Selector(id action) {
 
 - (void)xhOpenWindow:(NSDictionary *)request {
     id address = request[XYBookAudioKeyParameters][XYBookAudioKeyURL];
-    NSURL *URL = XYBookAudioString(address) ? [NSURL URLWithString:address] : nil;
+    NSURL *URL = XYBookAudioIsNonEmptyString(address) ? [NSURL URLWithString:address] : nil;
     if (!URL.scheme.length) {
         [self logWindowError:XYBookAudioError(XYBookAudioInvalidArgument,
                                               @"xhOpenWindow requires an absolute parameters.url.")
@@ -354,16 +373,16 @@ static SEL XYBookAudioH5Selector(id action) {
 - (void)xhSnckOpenPage:(NSDictionary *)request {
     XYBookAudioCompletion reply = [self callbackForRequest:request];
     NSDictionary *parameters = request[XYBookAudioKeyParameters];
-    NSURL *URL = XYBookAudioSnckURL(parameters[@"url"]);
+    NSURL *URL = XYBookAudioParseSnckURL(parameters[@"url"]);
     id title = parameters[@"title"];
     if (!URL || (title && ![title isKindOfClass:NSString.class])) {
-        reply(nil, XYBookAudioSnckError(4101, @"OpenPage requires a valid HTTP(S) URL and an optional title."));
+        reply(nil, XYBookAudioMakeSnckError(4101, @"OpenPage requires a valid HTTP(S) URL and an optional title."));
         return;
     }
     NSString *trimmedTitle = [title stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
     id<XYBookAudioWindowRouting> router = self.windowRouter;
     NSError *error = router ? [router openWindowWithURL:URL title:trimmedTitle.length ? title : nil fromPage:self.page]
-                            : XYBookAudioSnckError(4106, @"The page was closed.");
+                            : XYBookAudioMakeSnckError(4106, @"The page was closed.");
     reply(nil, error);
 }
 
@@ -372,7 +391,7 @@ static SEL XYBookAudioH5Selector(id action) {
     XYBookAudioCompletion reply = [self callbackForRequest:request];
     id<XYBookAudioWindowRouting> router = self.windowRouter;
     if (!router) {
-        reply(nil, XYBookAudioSnckError(4106, @"The page was closed."));
+        reply(nil, XYBookAudioMakeSnckError(4106, @"The page was closed."));
         return;
     }
     NSError *error = [router closeWindowFromPage:self.page beforeClose:^{
@@ -444,7 +463,7 @@ static SEL XYBookAudioH5Selector(id action) {
     NSMutableDictionary *parameters = [payload mutableCopy];
     parameters[@"version"] = @([self.SDK nextSnckEventVersion]);
     if (reason) {
-        parameters[@"reason"] = reason;
+        parameters[XYBookAudioKeyReason] = reason;
     }
     [self send:event parameters:parameters generation:self.generation];
 }
@@ -452,8 +471,9 @@ static SEL XYBookAudioH5Selector(id action) {
 - (void)pageDidAppear {
     if ([self canSendSnckEvents]) {
         self.lastSnckPlayback = [self.SDK snckPlayback];
-        [self sendSnckEvent:@"snckUserChanged" payload:[self.SDK snckUserState] reason:nil];
-        [self sendSnckEvent:@"snckAudioStateChanged" payload:self.lastSnckPlayback reason:@"page_resumed"];
+        [self sendSnckEvent:XYBookAudioSnckEventUserChanged payload:[self.SDK snckUserState] reason:nil];
+        [self sendSnckEvent:XYBookAudioSnckEventStateChanged payload:self.lastSnckPlayback
+                     reason:XYBookAudioSnckReasonPageResumed];
     }
 }
 
@@ -465,45 +485,49 @@ static SEL XYBookAudioH5Selector(id action) {
     if (generation != self.generation || ![self canSendSnckEvents]) {
         return;
     }
-    if ([event isEqual:XYBookAudioIdentityEvent]) {
-        [self sendSnckEvent:@"snckUserChanged" payload:[self.SDK snckUserState] reason:nil];
+    if ([event isEqual:XYBookAudioEventUserIdentityChanged]) {
+        [self sendSnckEvent:XYBookAudioSnckEventUserChanged payload:[self.SDK snckUserState] reason:nil];
         return;
     }
     NSDictionary *playback = [self.SDK snckPlayback];
-    if ([event isEqual:XYBookAudioErrorEvent] && [payload[XYBookAudioKeyCode] isEqual:@"PLAYBACK_FAILED"]) {
+    if ([event isEqual:XYBookAudioEventError] && [payload[XYBookAudioKeyCode] isEqual:@"PLAYBACK_FAILED"]) {
         NSMutableDictionary *failure = [playback mutableCopy];
-        failure[@"error"] = XYBookAudioSnckErrorPayload(XYBookAudioSnckError(4108, payload[XYBookAudioKeyMessage]));
-        [self sendSnckEvent:@"snckAudioError" payload:failure reason:@"playback_failed"];
+        failure[@"error"] =
+            XYBookAudioMakeSnckErrorPayload(XYBookAudioMakeSnckError(4108, payload[XYBookAudioKeyMessage]));
+        [self sendSnckEvent:XYBookAudioSnckEventAudioError payload:failure reason:XYBookAudioSnckReasonPlaybackFailed];
         return;
     }
-    if (![event isEqual:XYBookAudioPlaybackEvent]) {
+    if (![event isEqual:XYBookAudioEventPlaybackChanged]) {
         return;
     }
     NSDictionary *previous = self.lastSnckPlayback;
     self.lastSnckPlayback = playback;
-    BOOL queueChanged = ![previous[@"queueVersion"] isEqual:playback[@"queueVersion"]];
-    BOOL itemChanged = ![previous[@"index"] isEqual:playback[@"index"]];
-    BOOL stateChanged = ![previous[@"state"] isEqual:playback[@"state"]] ||
-                        ![previous[@"playWhenReady"] isEqual:playback[@"playWhenReady"]];
-    NSString *queueReason = [playback[@"items"] count] ? @"queue_replaced" : @"stopped";
+    BOOL queueChanged = ![previous[XYBookAudioKeyQueueVersion] isEqual:playback[XYBookAudioKeyQueueVersion]];
+    BOOL itemChanged = ![previous[XYBookAudioKeyIndex] isEqual:playback[XYBookAudioKeyIndex]];
+    BOOL stateChanged = ![previous[XYBookAudioKeyState] isEqual:playback[XYBookAudioKeyState]] ||
+                        ![previous[XYBookAudioKeyPlayWhenReady] isEqual:playback[XYBookAudioKeyPlayWhenReady]];
+    NSString *queueReason =
+        [playback[XYBookAudioKeyItems] count] ? XYBookAudioSnckReasonQueueReplaced : XYBookAudioSnckReasonStopped;
     if (queueChanged) {
-        [self sendSnckEvent:@"snckAudioQueueChanged" payload:playback reason:queueReason];
+        [self sendSnckEvent:XYBookAudioSnckEventQueueChanged payload:playback reason:queueReason];
     }
     if (queueChanged || itemChanged || stateChanged) {
-        NSString *reason = queueChanged ? queueReason : (itemChanged ? @"item_changed" : @"playback_state_changed");
-        [self sendSnckEvent:@"snckAudioStateChanged" payload:playback reason:reason];
+        NSString *reason =
+            queueChanged ? queueReason
+                         : (itemChanged ? XYBookAudioSnckReasonItemChanged : XYBookAudioSnckReasonPlaybackStateChanged);
+        [self sendSnckEvent:XYBookAudioSnckEventStateChanged payload:playback reason:reason];
     }
-    NSDictionary *oldTimer = previous[@"timer"], *timer = playback[@"timer"];
-    if (![oldTimer[@"mode"] isEqual:timer[@"mode"]] ||
-        ![oldTimer[@"remainingCount"] isEqual:timer[@"remainingCount"]] ||
-        ![(oldTimer[@"deadlineElapsedMs"] ?: @0) isEqual:(timer[@"deadlineElapsedMs"] ?: @0)]) {
+    NSDictionary *oldTimer = previous[XYBookAudioKeyTimer], *timer = playback[XYBookAudioKeyTimer];
+    if (![oldTimer[XYBookAudioKeyMode] isEqual:timer[XYBookAudioKeyMode]] ||
+        ![oldTimer[XYBookAudioKeyRemainingCount] isEqual:timer[XYBookAudioKeyRemainingCount]] ||
+        ![(oldTimer[XYBookAudioKeyDeadlineElapsedMs] ?: @0) isEqual:(timer[XYBookAudioKeyDeadlineElapsedMs] ?: @0)]) {
         NSString *reason = XYBookAudioSnckTimerReason([self.SDK snckTimerChange]);
-        [self sendSnckEvent:@"snckAudioTimerChanged" payload:playback reason:reason];
+        [self sendSnckEvent:XYBookAudioSnckEventTimerChanged payload:playback reason:reason];
     }
     NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
-    if ([playback[@"playing"] boolValue] && now - self.lastSnckProgress >= XYBookAudioProgressInterval) {
+    if ([playback[XYBookAudioKeyPlaying] boolValue] && now - self.lastSnckProgress >= XYBookAudioProgressInterval) {
         self.lastSnckProgress = now;
-        [self sendSnckEvent:@"snckAudioProgress" payload:playback reason:@"progress"];
+        [self sendSnckEvent:XYBookAudioSnckEventProgress payload:playback reason:XYBookAudioSnckReasonProgress];
     }
 }
 
@@ -532,10 +556,10 @@ static SEL XYBookAudioH5Selector(id action) {
         [self.logger error:error component:XYBookAudioLogBridge operation:action];
         NSDictionary *payload =
             @{XYBookAudioKeyCode : XYBookAudioErrorName(error), XYBookAudioKeyMessage : error.localizedDescription};
-        [self send:XYBookAudioErrorEvent parameters:payload generation:generation];
+        [self send:XYBookAudioEventError parameters:payload generation:generation];
         return;
     }
-    NSDictionary *parameters = error ? XYBookAudioSnckErrorPayload(error) : result;
+    NSDictionary *parameters = error ? XYBookAudioMakeSnckErrorPayload(error) : result;
     [self send:request[XYBookAudioKeyCallbackActionName] parameters:parameters generation:generation];
 }
 
@@ -570,7 +594,7 @@ static SEL XYBookAudioH5Selector(id action) {
 
 /// 在发送前再次验证文档代次；WebView 负责结构化回调，管理类只负责决定回调是否仍有效。
 - (void)send:(NSString *)action parameters:(NSDictionary *)parameters generation:(NSUInteger)generation {
-    if (!XYBookAudioString(action) || !self.active || generation != self.generation ||
+    if (!XYBookAudioIsNonEmptyString(action) || !self.active || generation != self.generation ||
         ![self.configuration allowsURL:self.webView.URL]) {
         return;
     }

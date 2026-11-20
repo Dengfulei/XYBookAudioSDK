@@ -8,6 +8,12 @@
 
 #import "XYBookAudioLogger.h"
 
+static NSString *const XYBookAudioPlaybackActionPrefix = @"xhBookAudio";
+static NSString *const XYBookAudioCommandGetCapabilities = @"GetCapabilities";
+static NSString *const XYBookAudioCommandGetSnapshot = @"GetSnapshot";
+static NSString *const XYBookAudioCommandSubscribe = @"Subscribe";
+static NSString *const XYBookAudioCommandUnsubscribe = @"Unsubscribe";
+
 @interface XYBookAudioSDKManager ()
 
 @property (nonatomic, strong) XYBookAudioLogger *logger;
@@ -134,14 +140,14 @@
            parameters:(NSDictionary *)parameters
            completion:(XYBookAudioCompletion)completion {
     NSParameterAssert(NSThread.isMainThread);
-    NSString *command = XYBookAudioString(action) && [action hasPrefix:XYBookAudioPlaybackActionPrefix]
+    NSString *command = XYBookAudioIsNonEmptyString(action) && [action hasPrefix:XYBookAudioPlaybackActionPrefix]
                             ? [action substringFromIndex:XYBookAudioPlaybackActionPrefix.length]
                             : nil;
-    BOOL pageAction = XYBookAudioString(action) && [@[
+    BOOL pageAction = XYBookAudioIsNonEmptyString(action) && [@[
                           XYBookAudioActionOpenWindow, XYBookAudioActionCloseWindow, XYBookAudioActionGoLogin,
                           XYBookAudioActionCanIUse
                       ] containsObject:action];
-    BOOL hostAction = XYBookAudioString(action) &&
+    BOOL hostAction = XYBookAudioIsNonEmptyString(action) &&
                       [@[ XYBookAudioActionGetSystemInfo, XYBookAudioActionGetUserInfo, XYBookAudioActionShowShareMenu ]
                           containsObject:action];
     BOOL playbackAction =
@@ -209,7 +215,7 @@
     NSParameterAssert(NSThread.isMainThread);
     return @{
         XYBookAudioKeyActions : [XYBookAudioWebBridge supportedActions],
-        XYBookAudioKeyRates : XYBookAudioRates(),
+        XYBookAudioKeyRates : XYBookAudioSupportedPlaybackRates(),
         XYBookAudioKeySleepModes : @[ XYBookAudioValueOff, XYBookAudioValueDuration, XYBookAudioValueTrackCount ]
     };
 }

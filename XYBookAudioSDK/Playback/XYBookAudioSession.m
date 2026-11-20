@@ -2,6 +2,8 @@
 #import "XYBookAudioSessionInternal.h"
 #import <mach/mach_time.h>
 
+static const NSTimeInterval XYBookAudioCheckpointInterval = 5;
+
 static NSTimeInterval XYBookAudioContinuousTime(void) {
     mach_timebase_info_data_t info;
     mach_timebase_info(&info);
@@ -109,9 +111,9 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     }
     XYBookAudioChapter *chapter = [self chapter];
     [result addEntriesFromDictionary:@{
-        XYBookAudioKeyBookId : self.queue.bookId,
+        XYBookAudioKeyBookID : self.queue.bookId,
         XYBookAudioKeyTitle : self.queue.title,
-        XYBookAudioKeyChapterId : chapter.chapterId,
+        XYBookAudioKeyChapterID : chapter.chapterId,
         XYBookAudioKeyChapterTitle : chapter.title,
         XYBookAudioKeyChapterIndex : @(self.index),
         XYBookAudioKeyChapterCount : @(self.queue.chapters.count)
@@ -162,29 +164,34 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
         }
     }
     NSDictionary *timer = hasQueue ? [self.sleepTimer snapshot] : @{};
-    NSDictionary *modes = @{XYBookAudioValueDuration : @"AFTER_DURATION", XYBookAudioValueTrackCount : @"AFTER_ITEMS"};
+    NSDictionary *modes = @{
+        XYBookAudioValueDuration : XYBookAudioSnckTimerModeAfterDuration,
+        XYBookAudioValueTrackCount : XYBookAudioSnckTimerModeAfterItems
+    };
     NSString *mode = timer[XYBookAudioKeyMode];
     NSMutableDictionary *snckTimer = [@{
-        @"mode" : (mode ? modes[mode] : nil) ?: @"OFF",
-        @"remainingCount" : timer[XYBookAudioKeyRemainingCount] ?: @0,
-        @"remainingMs" : @(llround([timer[XYBookAudioKeyRemainingMs] doubleValue]))
+        XYBookAudioKeyMode : (mode ? modes[mode] : nil) ?: XYBookAudioSnckTimerModeOff,
+        XYBookAudioKeyRemainingCount : timer[XYBookAudioKeyRemainingCount] ?: @0,
+        XYBookAudioKeyRemainingMs : @(llround([timer[XYBookAudioKeyRemainingMs] doubleValue]))
     } mutableCopy];
     if ([mode isEqual:XYBookAudioValueDuration]) {
-        snckTimer[@"deadlineElapsedMs"] = @(llround(self.sleepTimer.deadline * 1000));
+        snckTimer[XYBookAudioKeyDeadlineElapsedMs] = @(llround(self.sleepTimer.deadline * 1000));
     }
     return @{
         @"stateVersion" : @(self.stateVersion),
-        @"queueVersion" : @(self.queueVersion),
-        @"items" : items,
-        @"index" : @(hasQueue ? self.index : -1),
+        XYBookAudioKeyQueueVersion : @(self.queueVersion),
+        XYBookAudioKeyItems : items,
+        XYBookAudioKeyIndex : @(hasQueue ? self.index : -1),
         @"item" : hasQueue ? items[self.index] : NSNull.null,
-        @"state" : snckState,
-        @"playing" : @([snckState isEqual:@"PLAYING"]),
-        @"playWhenReady" : @(hasQueue && (self.engine.wantsPlayback || preparing || self.resumeAfterInterruption)),
-        @"positionMs" : @(hasQueue ? llround(self.engine.hasItem ? self.engine.positionMs : self.position) : 0),
-        @"durationMs" : @(hasQueue ? llround(self.engine.durationMs) : 0),
+        XYBookAudioKeyState : snckState,
+        XYBookAudioKeyPlaying : @([snckState isEqual:@"PLAYING"]),
+        XYBookAudioKeyPlayWhenReady :
+            @(hasQueue && (self.engine.wantsPlayback || preparing || self.resumeAfterInterruption)),
+        XYBookAudioKeyPositionMs :
+            @(hasQueue ? llround(self.engine.hasItem ? self.engine.positionMs : self.position) : 0),
+        XYBookAudioKeyDurationMs : @(hasQueue ? llround(self.engine.durationMs) : 0),
         @"bufferedPositionMs" : @(hasQueue ? llround(self.engine.bufferedPositionMs) : 0),
-        @"timer" : snckTimer
+        XYBookAudioKeyTimer : snckTimer
     };
 }
 
@@ -231,7 +238,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     self.lastPublishedState = snapshot[XYBookAudioKeyState];
     [self.media update:snapshot artwork:self.artwork];
     if (self.event) {
-        self.event(XYBookAudioPlaybackEvent, snapshot);
+        self.event(XYBookAudioEventPlaybackChanged, snapshot);
     }
 }
 
@@ -240,7 +247,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     [self.logger error:error component:XYBookAudioLogPlayback operation:@"Playback session"];
     if (self.event) {
         self.event(
-            XYBookAudioErrorEvent,
+            XYBookAudioEventError,
             @{XYBookAudioKeyCode : XYBookAudioErrorName(error), XYBookAudioKeyMessage : error.localizedDescription});
     }
 }
@@ -376,8 +383,8 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     }
     self.identity = identity;
     if (self.event) {
-        self.event(XYBookAudioIdentityEvent,
-                   @{XYBookAudioKeyIsLoggedIn : @(identity.isLoggedIn), XYBookAudioKeyUserId : identity.userId});
+        self.event(XYBookAudioEventUserIdentityChanged,
+                   @{XYBookAudioKeyIsLoggedIn : @(identity.isLoggedIn), XYBookAudioKeyUserID : identity.userId});
     }
     [self publish];
     return YES;
@@ -476,7 +483,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     NSString *coverURL = self.queue.coverURL;
     NSURL *URL = coverURL ? [NSURL URLWithString:coverURL] : nil;
     if (self.queue.snckItems) {
-        URL = XYBookAudioSnckURL(self.queue.snckItems[self.index][@"coverUrl"]);
+        URL = XYBookAudioParseSnckURL(self.queue.snckItems[self.index][@"coverUrl"]);
     }
     if ([URL isEqual:self.artworkURL] && (self.artwork || self.artworkTask)) {
         return;

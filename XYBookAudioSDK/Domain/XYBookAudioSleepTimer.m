@@ -1,5 +1,6 @@
 // 只持有定时状态；按时间到期或自然完成次数结算，命中后立即关闭，避免重复触发。
 #import "XYBookAudioSleepTimer.h"
+#import "XYBookAudioTypes.h"
 
 @interface XYBookAudioSleepTimer ()
 
@@ -35,8 +36,9 @@
     NSString *mode = parameters[XYBookAudioKeyMode];
     BOOL countMode = [mode isKindOfClass:NSString.class] && [mode isEqualToString:XYBookAudioValueTrackCount];
     BOOL durationMode = [mode isKindOfClass:NSString.class] && [mode isEqualToString:XYBookAudioValueDuration];
-    BOOL valid = (countMode && XYBookAudioNumber(parameters[XYBookAudioKeyCount], 1, INT_MAX, YES)) ||
-                 (durationMode && XYBookAudioNumber(parameters[XYBookAudioKeyDurationMs], 1, maximumDuration, YES));
+    BOOL valid =
+        (countMode && XYBookAudioIsNumberInRange(parameters[XYBookAudioKeyCount], 1, INT_MAX, YES)) ||
+        (durationMode && XYBookAudioIsNumberInRange(parameters[XYBookAudioKeyDurationMs], 1, maximumDuration, YES));
     if (!valid || (countMode && !hasCurrent)) {
         if (error) {
             *error = XYBookAudioError(valid ? XYBookAudioInvalidState : XYBookAudioInvalidArgument,

@@ -15,11 +15,13 @@
         return;
     }
     if ([command isEqual:@"GetQueue"]) {
-        completion(@{@"items" : self.queue.snckItems ?: @[], @"queueVersion" : @(self.queueVersion)}, nil);
+        completion(
+            @{XYBookAudioKeyItems : self.queue.snckItems ?: @[], XYBookAudioKeyQueueVersion : @(self.queueVersion)},
+            nil);
         return;
     }
     if ([command isEqual:@"GetTimer"]) {
-        completion([self snckPlayback][@"timer"], nil);
+        completion([self snckPlayback][XYBookAudioKeyTimer], nil);
         return;
     }
     if ([command isEqual:XYBookAudioCommandStop]) {
@@ -48,7 +50,7 @@
         }
         return;
     }
-    if ([command isEqual:@"SetTimer"] && [parameters[@"mode"] isEqual:@"OFF"]) {
+    if ([command isEqual:@"SetTimer"] && [parameters[XYBookAudioKeyMode] isEqual:XYBookAudioSnckTimerModeOff]) {
         if (self.queue.snckItems) {
             [self execute:XYBookAudioCommandCancelSleepTimer parameters:@{} completion:finish];
         } else {
@@ -61,9 +63,11 @@
         return;
     }
     if ([command isEqual:@"SetTimer"]) {
-        NSDictionary *modes =
-            @{@"AFTER_ITEMS" : XYBookAudioValueTrackCount, @"AFTER_DURATION" : XYBookAudioValueDuration};
-        id mode = modes[parameters[@"mode"] ?: NSNull.null] ?: NSNull.null;
+        NSDictionary *modes = @{
+            XYBookAudioSnckTimerModeAfterItems : XYBookAudioValueTrackCount,
+            XYBookAudioSnckTimerModeAfterDuration : XYBookAudioValueDuration
+        };
+        id mode = modes[parameters[XYBookAudioKeyMode] ?: NSNull.null] ?: NSNull.null;
         NSMutableDictionary *timer = [parameters mutableCopy];
         timer[XYBookAudioKeyMode] = mode;
         NSError *error = nil;
@@ -74,8 +78,8 @@
         return;
     }
     if ([command isEqual:@"PlayAt"]) {
-        id index = parameters[@"index"];
-        if (!XYBookAudioNumber(index, 0, self.queue.chapters.count - 1, YES)) {
+        id index = parameters[XYBookAudioKeyIndex];
+        if (!XYBookAudioIsNumberInRange(index, 0, self.queue.chapters.count - 1, YES)) {
             finish(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"index is outside the queue."));
             return;
         }
@@ -85,7 +89,7 @@
     if ([command isEqual:XYBookAudioCommandSeekTo]) {
         double duration = self.engine.durationMs;
         double limit = duration > 0 ? round(duration) : 9007199254740991.0;
-        if (!XYBookAudioNumber(parameters[XYBookAudioKeyPositionMs], 0, limit, YES)) {
+        if (!XYBookAudioIsNumberInRange(parameters[XYBookAudioKeyPositionMs], 0, limit, YES)) {
             finish(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"positionMs is invalid or beyond the duration."));
             return;
         }
@@ -153,12 +157,12 @@
                                     @"A media source is outside the allowed local resource directory.");
         }
     }
-    NSString *selected = parameters[XYBookAudioKeyChapterId];
-    if (selected && !XYBookAudioString(selected)) {
+    NSString *selected = parameters[XYBookAudioKeyChapterID];
+    if (selected && !XYBookAudioIsNonEmptyString(selected)) {
         return XYBookAudioError(XYBookAudioInvalidArgument, @"chapterId must be a nonempty string.");
     }
     if (parameters[XYBookAudioKeyPositionMs] &&
-        !XYBookAudioNumber(parameters[XYBookAudioKeyPositionMs], 0, DBL_MAX, NO)) {
+        !XYBookAudioIsNumberInRange(parameters[XYBookAudioKeyPositionMs], 0, DBL_MAX, NO)) {
         return XYBookAudioError(XYBookAudioInvalidArgument, @"positionMs must be a nonnegative number.");
     }
     XYBookAudioIdentity *identity = [self.host bookAudioUserIdentity];
@@ -167,7 +171,7 @@
     }
     NSError *checkpointError = nil;
     NSDictionary *checkpoint = [self.store readBook:queue.bookId identity:identity.userId error:&checkpointError];
-    NSString *target = selected ?: checkpoint[XYBookAudioKeyChapterId];
+    NSString *target = selected ?: checkpoint[XYBookAudioKeyChapterID];
     NSUInteger index =
         [queue.chapters indexOfObjectPassingTest:^BOOL(XYBookAudioChapter *chapter, NSUInteger index, BOOL *stop) {
             return [chapter.chapterId isEqual:target];
@@ -180,7 +184,7 @@
     }
     double position = parameters[XYBookAudioKeyPositionMs]
                           ? [parameters[XYBookAudioKeyPositionMs] doubleValue]
-                          : ([queue.chapters[index].chapterId isEqual:checkpoint[XYBookAudioKeyChapterId]]
+                          : ([queue.chapters[index].chapterId isEqual:checkpoint[XYBookAudioKeyChapterID]]
                                  ? [checkpoint[XYBookAudioKeyPositionMs] doubleValue]
                                  : 0);
     [self installQueue:queue index:index position:position identity:identity];
@@ -382,7 +386,7 @@
 /// 仅接受协议白名单中的倍速；暂停时保存选择，不因设置倍速自动开始播放。
 - (NSError *)changeRate:(NSDictionary *)parameters {
     NSNumber *rate = parameters[XYBookAudioKeyRate];
-    if (!XYBookAudioNumber(rate, 0.75, 2, NO) || ![XYBookAudioRates() containsObject:rate]) {
+    if (!XYBookAudioIsNumberInRange(rate, 0.75, 2, NO) || ![XYBookAudioSupportedPlaybackRates() containsObject:rate]) {
         return XYBookAudioError(XYBookAudioInvalidArgument, @"Unsupported playback rate.");
     }
     self.rate = rate.doubleValue;
@@ -400,8 +404,8 @@
     }
     NSInteger index = self.index + ([command isEqual:XYBookAudioCommandNext] ? 1 : -1);
     if ([command isEqual:XYBookAudioCommandSelectChapter]) {
-        NSString *identifier = parameters[XYBookAudioKeyChapterId];
-        if (!XYBookAudioString(identifier)) {
+        NSString *identifier = parameters[XYBookAudioKeyChapterID];
+        if (!XYBookAudioIsNonEmptyString(identifier)) {
             completion(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"chapterId is required."));
             return;
         }
@@ -431,7 +435,7 @@
 /// 校验毫秒位置并限制到已知时长；未装载播放器时只更新断点，活动拖动只接受最后一次结果。
 - (void)seek:(NSDictionary *)parameters completion:(XYBookAudioCompletion)completion {
     NSNumber *position = parameters[XYBookAudioKeyPositionMs];
-    if (!self.queue || !XYBookAudioNumber(position, 0, DBL_MAX, NO)) {
+    if (!self.queue || !XYBookAudioIsNumberInRange(position, 0, DBL_MAX, NO)) {
         completion(nil,
                    XYBookAudioError(XYBookAudioInvalidArgument, @"A queue and nonnegative positionMs are required."));
         return;

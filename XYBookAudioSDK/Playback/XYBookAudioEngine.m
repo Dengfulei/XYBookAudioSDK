@@ -1,6 +1,7 @@
 // 单章 AVPlayer 适配：会话决定下一章；generation 隔离旧资源回调，seekGeneration 保证最后一次拖动生效。
 #import "XYBookAudioEngine.h"
 #import "XYBookAudioMessageProtocol.h"
+#import "XYBookAudioTypes.h"
 static void *XYBookAudioItemContext = &XYBookAudioItemContext;
 
 @interface XYBookAudioEngine ()
