@@ -54,6 +54,12 @@
     configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
     self.webView = [[XYBookAudioBridgeWebView alloc] initWithFrame:self.view.bounds configuration:configuration];
     self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+#if __IPHONE_OS_VERSION_MAX_ALLOWED >= 260000
+    if (@available(iOS 26.0, *)) {
+        // 页面背景延伸到状态栏，避免系统滚动边缘渐变改变网页顶部颜色。
+        self.webView.scrollView.topEdgeEffect.hidden = YES;
+    }
+#endif
     if (@available(iOS 16.4, *)) {
         self.webView.inspectable = self.configuration.webInspectorEnabled;
     }
