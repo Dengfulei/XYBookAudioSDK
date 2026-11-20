@@ -18,7 +18,8 @@
 @property (nonatomic, strong) XYBookAudioBridgeWebView *webView;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UIButton *retryButton;
-@property (nonatomic) BOOL usesHostNavigation;
+@property (nonatomic, weak) UINavigationController *navigationWithHiddenBar;
+@property (nonatomic) BOOL navigationBarWasHidden;
 @property (nonatomic) BOOL closing;
 @property (nonatomic, strong) XYBookAudioUserAgent *userAgentProvider;
 
@@ -30,7 +31,6 @@
               configuration:(XYBookAudioConfiguration *)configuration
                    entryURL:(NSURL *)entryURL
                windowRouter:(id<XYBookAudioWindowRouting>)windowRouter
-         usesHostNavigation:(BOOL)usesHostNavigation
                      logger:(XYBookAudioLogger *)logger {
     if ((self = [super initWithNibName:nil bundle:nil])) {
         _SDK = SDK;
@@ -38,7 +38,6 @@
         _configuration = configuration;
         _entryURL = entryURL;
         _windowRouter = windowRouter;
-        _usesHostNavigation = usesHostNavigation;
     }
     return self;
 }
@@ -48,22 +47,13 @@
     [super viewDidLoad];
     self.title = self.title ?: @"听书";
     self.view.backgroundColor = UIColor.systemBackgroundColor;
-    if (!self.usesHostNavigation) {
-        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"返回"
-                                                                                 style:UIBarButtonItemStylePlain
-                                                                                target:self
-                                                                                action:@selector(goBack)];
-    }
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"关闭"
-                                                                              style:UIBarButtonItemStylePlain
-                                                                             target:self
-                                                                             action:@selector(closePage)];
     WKWebViewConfiguration *configuration = [WKWebViewConfiguration new];
     // 对齐 XYWebBrowerController 的网页存储：同源窗口共享 localStorage 和 Cookie，关闭重开不丢失。
     // 默认数据存储由宿主 App 共用；不要为每页新建匿名存储，也不要在关闭 SDK 时清空宿主网页数据。
     configuration.websiteDataStore = WKWebsiteDataStore.defaultDataStore;
     configuration.mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeAll;
     self.webView = [[XYBookAudioBridgeWebView alloc] initWithFrame:self.view.bounds configuration:configuration];
+    self.webView.scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
     if (@available(iOS 16.4, *)) {
         self.webView.inspectable = self.configuration.webInspectorEnabled;
     }
@@ -78,15 +68,24 @@
     [self loadEntry];
 }
 
-/// 宿主登录页可能隐藏导航栏；返回时恢复 SDK 导航，保证用户仍能返回或关闭。
+/// 只在当前听书页显示期间隐藏原生导航栏。
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    if (!self.usesHostNavigation) {
-        [self.navigationController setNavigationBarHidden:NO animated:animated];
+    UINavigationController *navigation = self.navigationController;
+    if (self.navigationWithHiddenBar != navigation) {
+        self.navigationBarWasHidden = navigation.isNavigationBarHidden;
+        self.navigationWithHiddenBar = navigation;
     }
+    [navigation setNavigationBarHidden:YES animated:animated];
 }
 
-/// 以容器安全区约束页面和重试控件，保留各尺寸下的原生导航入口。
+- (void)viewWillDisappear:(BOOL)animated {
+    [super viewWillDisappear:animated];
+    [self.navigationWithHiddenBar setNavigationBarHidden:self.navigationBarWasHidden animated:animated];
+    self.navigationWithHiddenBar = nil;
+}
+
+/// WebView 贴齐容器上下边缘，原生操作控件留在安全区内。
 - (void)layoutContent {
     self.spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleMedium];
     self.retryButton = [UIButton buttonWithType:UIButtonTypeSystem];
@@ -99,15 +98,15 @@
     }
     UILayoutGuide *safe = self.view.safeAreaLayoutGuide;
     [NSLayoutConstraint activateConstraints:@[
-        [self.webView.topAnchor constraintEqualToAnchor:safe.topAnchor],
-        [self.webView.bottomAnchor constraintEqualToAnchor:safe.bottomAnchor],
+        [self.webView.topAnchor constraintEqualToAnchor:self.view.topAnchor],
+        [self.webView.bottomAnchor constraintEqualToAnchor:self.view.bottomAnchor],
         [self.webView.leadingAnchor constraintEqualToAnchor:safe.leadingAnchor],
-        [self.webView.trailingAnchor constraintEqualToAnchor:safe.trailingAnchor],
-        [self.spinner.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [self.spinner.centerYAnchor constraintEqualToAnchor:safe.centerYAnchor],
-        [self.retryButton.centerXAnchor constraintEqualToAnchor:safe.centerXAnchor],
-        [self.retryButton.centerYAnchor constraintEqualToAnchor:safe.centerYAnchor],
-        [self.retryButton.widthAnchor constraintLessThanOrEqualToAnchor:safe.widthAnchor multiplier:0.85]
+        [self.webView.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.spinner.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.spinner.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+        [self.retryButton.centerXAnchor constraintEqualToAnchor:self.view.centerXAnchor],
+        [self.retryButton.centerYAnchor constraintEqualToAnchor:self.view.centerYAnchor],
+        [self.retryButton.widthAnchor constraintLessThanOrEqualToAnchor:safe.widthAnchor multiplier:0.85],
     ]];
 }
 
@@ -167,13 +166,8 @@
 - (void)goBack {
     if (self.webView.canGoBack) {
         [self.webView goBack];
-    } else {
-        [self closePage];
+        return;
     }
-}
-
-/// 原生关闭按钮与 H5 共用逐层关闭规则，避免子页关闭时误 dismiss 整个听书容器。
-- (void)closePage {
     NSError *error = [self.windowRouter closeWindowFromPage:self beforeClose:nil];
     if (error) {
         [self.logger error:error component:XYBookAudioLogPage operation:XYBookAudioActionCloseWindow];

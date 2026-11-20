@@ -137,6 +137,15 @@
     }];
 }
 
+- (void)assertWebViewFillsPageVertically:(WKWebView *)web {
+    UIView *page = self.navigation.topViewController.view;
+    CGRect frame = [web convertRect:web.bounds toView:page];
+    XCTAssertEqualWithAccuracy(CGRectGetMinY(frame), CGRectGetMinY(page.bounds), 0.5);
+    XCTAssertEqualWithAccuracy(CGRectGetMaxY(frame), CGRectGetMaxY(page.bounds), 0.5);
+    XCTAssertEqualWithAccuracy(web.scrollView.adjustedContentInset.top, 0, 0.5);
+    XCTAssertEqualWithAccuracy(web.scrollView.adjustedContentInset.bottom, 0, 0.5);
+}
+
 - (WKWebView *)openRoot {
     XCTestExpectation *opened = [self expectationWithDescription:@"打开听书首页"];
     [self.service openFromViewController:self.presenter style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
@@ -301,10 +310,14 @@
 
 - (void)testNestedWindowsCloseIndividuallyAndPreserveQueue {
     WKWebView *root = [self openRoot];
+    XCTAssertTrue(self.navigation.isNavigationBarHidden);
+    [self assertWebViewFillsPageVertically:root];
     [self script:@"await loadQueue('https://example.invalid/fixture.mp3'); window.parentMarker = 'kept'; return true;"
              web:root];
     [self openFixturePage:self.childURL];
     WKWebView *child = [self pageAtDepth:2];
+    XCTAssertTrue(self.navigation.isNavigationBarHidden);
+    [self assertWebViewFillsPageVertically:child];
     XCTAssertNotEqual(root, child);
     XCTAssertEqualObjects(child.URL.URLByResolvingSymlinksInPath, self.childURL.URLByResolvingSymlinksInPath);
     [self openFixturePage:self.entryURL];
@@ -315,8 +328,14 @@
     XCTAssertEqual([self pageAtDepth:2], child);
     [self post:@{@"actionName" : @"xhSnckClosePage"} web:child];
     XCTAssertEqual([self pageAtDepth:1], root);
+    XCTAssertTrue(self.navigation.isNavigationBarHidden);
     XCTAssertEqualObjects([self script:@"return window.parentMarker;" web:root], @"kept");
-    [self post:@{@"actionName" : @"xhSnckClosePage"} web:root];
+    UIButton *backButton =
+        (UIButton *)[self findView:self.navigation.topViewController.view matching:^BOOL(UIView *view) {
+            return [view isKindOfClass:UIButton.class] && [view.accessibilityLabel isEqualToString:@"返回"];
+        }];
+    XCTAssertNotNil(backButton);
+    [backButton sendActionsForControlEvents:UIControlEventTouchUpInside];
     [self waitUntil:^BOOL {
         return self.presenter.presentedViewController == nil;
     }];
@@ -657,16 +676,21 @@
 
 - (void)testPushUsesHostStackAndAllowsReopenAfterClosing {
     UIViewController *host = [self installHostNavigation];
+    XCTAssertFalse(self.hostNavigation.isNavigationBarHidden);
     WKWebView *root = [self openPushedRootFrom:host];
+    XCTAssertTrue(self.hostNavigation.isNavigationBarHidden);
+    [self assertWebViewFillsPageVertically:root];
     XCTAssertNil(host.presentedViewController);
     XCTAssertEqual(self.hostNavigation.delegate, self);
     [self script:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:root];
     [self openFixturePage:self.childURL];
     WKWebView *child = [self pageAtDepth:3];
+    XCTAssertTrue(self.hostNavigation.isNavigationBarHidden);
     [self post:@{@"actionName" : @"xhGoLogin"} web:child];
     [self waitUntil:^BOOL {
         return self.hostNavigation.viewControllers.count == 4 && !self.hostNavigation.transitionCoordinator;
     }];
+    XCTAssertFalse(self.hostNavigation.isNavigationBarHidden);
     UIButton *button =
         (UIButton *)[self findView:self.hostNavigation.topViewController.view matching:^BOOL(UIView *view) {
             return [view isKindOfClass:UIButton.class] &&
@@ -675,6 +699,7 @@
     XCTAssertNotNil(button);
     [button sendActionsForControlEvents:UIControlEventTouchUpInside];
     XCTAssertEqual([self pageAtDepth:3], child);
+    XCTAssertTrue(self.hostNavigation.isNavigationBarHidden);
     XCTAssertGreaterThan(AppAccountService.sharedInstance.userId.length, 0u);
     [self post:@{@"actionName" : @"xhCloseWindow"} web:child];
     XCTAssertEqual([self pageAtDepth:2], root);
@@ -682,12 +707,14 @@
     [self waitUntil:^BOOL {
         return self.hostNavigation.topViewController == host && !self.hostNavigation.transitionCoordinator;
     }];
+    XCTAssertFalse(self.hostNavigation.isNavigationBarHidden);
     root = [self openPushedRootFrom:host];
     XCTAssertEqualObjects([self script:@"return (await call('xhSnckAudioGetState')).item.id;" web:root], @"fixture");
     [self.hostNavigation popViewControllerAnimated:NO];
     [self waitUntil:^BOOL {
         return self.hostNavigation.topViewController == host && !self.hostNavigation.transitionCoordinator;
     }];
+    XCTAssertFalse(self.hostNavigation.isNavigationBarHidden);
     XCTestExpectation *presented = [self expectationWithDescription:@"返回后切换到 Present"];
     [self.service openFromViewController:host style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
         XCTAssertNil(error);

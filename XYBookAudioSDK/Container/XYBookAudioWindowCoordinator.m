@@ -59,11 +59,11 @@ static void XYBookAudioAfterNavigationTransition(UINavigationController *navigat
 }
 
 - (XYBookAudioWebViewController *)pageWithURL:(NSURL *)URL {
-    XYBookAudioWebViewController *page =
-        [[XYBookAudioWebViewController alloc] initWithSDK:self.SDK configuration:self.configuration entryURL:URL
-                                             windowRouter:self
-                                       usesHostNavigation:self.style == XYBookAudioOpenStylePush
-                                                   logger:self.logger];
+    XYBookAudioWebViewController *page = [[XYBookAudioWebViewController alloc] initWithSDK:self.SDK
+                                                                             configuration:self.configuration
+                                                                                  entryURL:URL
+                                                                              windowRouter:self
+                                                                                    logger:self.logger];
     [self.pages addObject:page];
     return page;
 }

@@ -15,7 +15,6 @@
               configuration:(XYBookAudioConfiguration *)configuration
                    entryURL:(NSURL *)entryURL
                windowRouter:(id<XYBookAudioWindowRouting>)windowRouter
-         usesHostNavigation:(BOOL)usesHostNavigation
                      logger:(XYBookAudioLogger *)logger;
 /// 页面出栈或整个容器关闭时撤销 Bridge、UA 读取和网页加载；不会改变播放状态。
 - (void)invalidatePage;
