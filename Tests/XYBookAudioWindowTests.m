@@ -320,22 +320,26 @@
     [self assertWebViewFillsPageVertically:child];
     XCTAssertNotEqual(root, child);
     XCTAssertEqualObjects(child.URL.URLByResolvingSymlinksInPath, self.childURL.URLByResolvingSymlinksInPath);
+    [self post:@{@"actionName" : @"xhGoLogin"} web:child];
+    [self waitUntil:^BOOL {
+        return self.navigation.viewControllers.count == 3 && !self.navigation.transitionCoordinator;
+    }];
+    XCTAssertFalse(self.navigation.isNavigationBarHidden);
+    [self.navigation popViewControllerAnimated:NO];
+    XCTAssertEqual([self pageAtDepth:2], child);
+    XCTAssertTrue(self.navigation.isNavigationBarHidden);
     [self openFixturePage:self.entryURL];
     WKWebView *grandchild = [self pageAtDepth:3];
     XCTAssertEqualObjects([self script:@"return (await call('xhSnckAudioGetState')).item.id;" web:grandchild],
                           @"fixture");
     [self post:@{@"actionName" : @"xhSnckClosePage"} web:grandchild];
     XCTAssertEqual([self pageAtDepth:2], child);
+    XCTAssertTrue(self.navigation.isNavigationBarHidden);
     [self post:@{@"actionName" : @"xhSnckClosePage"} web:child];
     XCTAssertEqual([self pageAtDepth:1], root);
     XCTAssertTrue(self.navigation.isNavigationBarHidden);
     XCTAssertEqualObjects([self script:@"return window.parentMarker;" web:root], @"kept");
-    UIButton *backButton =
-        (UIButton *)[self findView:self.navigation.topViewController.view matching:^BOOL(UIView *view) {
-            return [view isKindOfClass:UIButton.class] && [view.accessibilityLabel isEqualToString:@"返回"];
-        }];
-    XCTAssertNotNil(backButton);
-    [backButton sendActionsForControlEvents:UIControlEventTouchUpInside];
+    [self post:@{@"actionName" : @"xhSnckClosePage"} web:root];
     [self waitUntil:^BOOL {
         return self.presenter.presentedViewController == nil;
     }];
@@ -686,6 +690,7 @@
     [self openFixturePage:self.childURL];
     WKWebView *child = [self pageAtDepth:3];
     XCTAssertTrue(self.hostNavigation.isNavigationBarHidden);
+    [self assertWebViewFillsPageVertically:child];
     [self post:@{@"actionName" : @"xhGoLogin"} web:child];
     [self waitUntil:^BOOL {
         return self.hostNavigation.viewControllers.count == 4 && !self.hostNavigation.transitionCoordinator;
@@ -703,6 +708,7 @@
     XCTAssertGreaterThan(AppAccountService.sharedInstance.userId.length, 0u);
     [self post:@{@"actionName" : @"xhCloseWindow"} web:child];
     XCTAssertEqual([self pageAtDepth:2], root);
+    XCTAssertTrue(self.hostNavigation.isNavigationBarHidden);
     [self post:@{@"actionName" : @"xhSnckClosePage"} web:root];
     [self waitUntil:^BOOL {
         return self.hostNavigation.topViewController == host && !self.hostNavigation.transitionCoordinator;
@@ -722,6 +728,9 @@
     }];
     [self waitForExpectations:@[ presented ] timeout:5];
     XCTAssertTrue([host.presentedViewController isKindOfClass:UINavigationController.class]);
+    UINavigationController *presentedNavigation = (UINavigationController *)host.presentedViewController;
+    XCTAssertTrue(presentedNavigation.isNavigationBarHidden);
+    XCTAssertFalse(self.hostNavigation.isNavigationBarHidden);
     XCTAssertEqualObjects(self.hostNavigation.viewControllers, (@[ host ]));
     [self.service shutdown];
     [self waitUntil:^BOOL {

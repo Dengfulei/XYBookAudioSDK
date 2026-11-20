@@ -25,9 +25,9 @@ SDK 在加载 H5 前通过临时 WebView 的空白本地文档读取实际 `navi
 
 `XYBookAudioOpenStylePush` 将听书首页推入宿主导航栈，要求传入当前可见的栈顶控制器。没有导航栈时返回 `INVALID_ARGUMENT`。`XYBookAudioOpenStylePresent` 全屏展示 SDK 自己的导航容器。直接调用 `XYBookAudioSDKManager` 的 `openFromViewController:completion:` 时，默认使用 Present。打开回调确认原生展示，网页加载结果由 SDK 页面处理。
 
-两种方式下，听书页及其子页均隐藏原生导航栏。离开听书页进入宿主页或登录页时，恢复导航栏此前的显示状态。页面提供独立返回按钮，优先回退网页历史，没有历史时关闭当前听书页。H5 仍可通过原有接口打开或关闭页面。
+两种方式下，听书页及其子页均隐藏原生导航栏。离开听书页进入宿主页或登录页时，恢复导航栏此前的显示状态。H5 通过原有接口打开或关闭页面，并在网页内提供返回入口。
 
-WebView 顶部和底部贴齐听书容器。H5 可使用 `viewport-fit=cover` 和 CSS 的 `env(safe-area-inset-top)`、`env(safe-area-inset-bottom)`，让网页按钮或文字避开状态栏和底部手势区。原生返回和重试按钮仍位于安全区内。
+WebView 顶部和底部贴齐听书容器。H5 可使用 `viewport-fit=cover` 和 CSS 的 `env(safe-area-inset-top)`、`env(safe-area-inset-bottom)`，让网页按钮或文字避开状态栏和底部手势区。
 
 每个 SDK 实例同一时间只打开一组听书页面。重复打开或当前控制器无法导航时返回 `BUSY`。H5 用原有接口打开和关闭子页，两种模式都复用当前导航栈和初始可信地址范围。关页后保留播放器、队列和定时器。新开或重开 H5 调用 `xhSnckReady` 获取当前快照。
 
