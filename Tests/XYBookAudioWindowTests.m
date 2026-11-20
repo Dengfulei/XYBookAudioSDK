@@ -181,7 +181,9 @@
                       "        stopped,emptyPlay,unknown,events:snckEvents.map(event=>event.actionName)};"
                  web:web];
     XCTAssertEqualObjects(result[@"ready"][@"protocolVersion"], @1);
-    XCTAssertEqual([result[@"ready"][@"capabilities"] count], 17u);
+    NSArray *capabilities = result[@"ready"][@"capabilities"];
+    NSPredicate *snckAction = [NSPredicate predicateWithFormat:@"SELF BEGINSWITH 'xhSnck'"];
+    XCTAssertEqual([capabilities filteredArrayUsingPredicate:snckAction].count, 17u);
     XCTAssertEqualObjects(result[@"ready"][@"userState"][@"user"], NSNull.null);
     XCTAssertEqualObjects(result[@"ready"][@"playback"][@"queueVersion"], result[@"queued"][@"queueVersion"]);
     XCTAssertEqualObjects(result[@"ready"][@"playback"][@"item"], result[@"queued"][@"item"]);
@@ -309,21 +311,109 @@
 - (void)testUndocumentedAndInternalActionsAreRejected {
     WKWebView *root = [self openRoot];
     NSDictionary *result = [self
-        script:@"const actions = ['xhGetUserInfo', 'xhGetSystemInfo', 'xhGoLogin', 'xhOpenWindow', 'xhCloseWindow',"
-                "  'xhShowShareMenu', 'xhCanIUse', 'xhInitClientFont', 'xhGetClientSign', 'xhBookAudioGetSnapshot',"
-                "  'xhBookAudioSubscribe', 'xhBookAudioPlay', 'xhSnckReady:', 'invalidate', 'setPage'];"
+        script:@"const actions = ['xhInitClientFont', 'xhGetClientSign',"
+                "  'xhBookAudioGetSnapshot', 'xhBookAudioSubscribe', 'xhBookAudioPlay', 'xhSnckReady:',"
+                "  'xhCanIUse:', 'xhGetUserInfo:', 'invalidate', 'setPage'];"
                 "const codes = {};"
                 "for (const action of actions) {"
                 "  try { await call(action); } catch (error) { codes[action] = error.code; }"
                 "}"
                 "return {actions, codes, capabilities:(await call('xhSnckReady')).capabilities};"
            web:root];
-    XCTAssertEqual([result[@"capabilities"] count], 17u);
+    XCTAssertEqual([result[@"capabilities"] count], 24u);
     for (NSString *action in result[@"actions"]) {
         XCTAssertEqualObjects(result[@"codes"][action], @(-3), @"%@", action);
         XCTAssertFalse([result[@"capabilities"] containsObject:action]);
     }
     XCTAssertEqual(self.navigation.viewControllers.count, 1u);
+}
+
+- (void)testLegacyWindowLoginAndCapabilityActions {
+    WKWebView *root = [self openRoot];
+    NSDictionary *result = [self
+        script:@"const actions = ['xhOpenWindow', 'xhCloseWindow', 'xhGoLogin', 'xhCanIUse', 'xhShowShareMenu',"
+                "  'xhGetUserInfo', 'xhGetSystemInfo'];"
+                "const names = [...actions, 'xhSnckReady', 'xhGetClientSign', 'xhCanIUse:', 'setPage'];"
+                "const checks = await Promise.all(names.map(name => call('xhCanIUse', {name})));"
+                "const {capabilities} = await call('xhSnckReady');"
+                "return {checks, listed:actions.every(action => capabilities.includes(action))};"
+           web:root];
+    XCTAssertEqualObjects([result[@"checks"] valueForKey:@"data"], (@[ @1, @1, @1, @1, @1, @1, @1, @1, @0, @0, @0 ]));
+    XCTAssertEqualObjects(result[@"listed"], @YES);
+    [self post:@{@"actionName" : @"xhOpenWindow", @"parameters" : @{@"url" : self.childURL.absoluteString}} web:root];
+    WKWebView *child = [self pageAtDepth:2];
+    XCTAssertEqualObjects(child.URL.URLByResolvingSymlinksInPath, self.childURL.URLByResolvingSymlinksInPath);
+    [self post:@{@"actionName" : @"xhGoLogin"} web:child];
+    [self waitUntil:^BOOL {
+        return self.navigation.viewControllers.count == 3 && !self.navigation.transitionCoordinator;
+    }];
+    [self.navigation popViewControllerAnimated:NO];
+    XCTAssertEqual([self pageAtDepth:2], child);
+    [self post:@{@"actionName" : @"xhCloseWindow"} web:child];
+    XCTAssertEqual([self pageAtDepth:1], root);
+}
+
+- (void)testLegacyInfoReturnsRawHostDataAndTicketErrorEvent {
+    WKWebView *web = [self openRoot];
+    NSDictionary *guest =
+        [self script:@"return await call('xhGetUserInfo', {goLogin:false, useTicket:false});" web:web];
+    XCTAssertEqualObjects(guest, @{});
+    NSDictionary *system = [self script:@"return await call('xhGetSystemInfo');" web:web];
+    XCTAssertEqualObjects(system[@"device_token"], UIDevice.currentDevice.identifierForVendor.UUIDString);
+    XCTAssertEqualObjects(system[@"system"], UIDevice.currentDevice.systemVersion);
+
+    [AppAccountService.sharedInstance updateAuthenticatedUserId:@"profile-user"];
+    NSDictionary *profile =
+        [self script:@"return await call('xhGetUserInfo', {goLogin:false, useTicket:false});" web:web];
+    XCTAssertEqualObjects(profile, (@{@"id" : @"profile-user", @"info" : @{@"id" : @"profile-user"}}));
+
+    NSDictionary *failure = [self
+        script:@"return await new Promise(resolve => {"
+                "  const receive = window.xhWebJSBridge.nativeCallJS;"
+                "  window.xhWebJSBridge.nativeCallJS = message => {"
+                "    if (message.actionName === 'onBookAudioError') resolve(message.parameters);"
+                "    else if (message.actionName === 'ticket-reply') resolve(null);"
+                "    else receive(message);"
+                "  };"
+                "  window.xhAppJSBridge.JSCallNative(JSON.stringify({actionName:'xhGetUserInfo',"
+                "    parameters:{useTicket:true}, callbackActionName:'ticket-reply'}));"
+                "});"
+           web:web];
+    XCTAssertEqualObjects(failure[@"code"], @"UNSUPPORTED");
+}
+
+- (void)testLegacyShareOnlyRepliesWhenAccepted {
+    WKWebView *web = [self openRoot];
+    [self script:@"window.shareReplies = []; const receive = window.xhWebJSBridge.nativeCallJS;"
+                  "window.xhWebJSBridge.nativeCallJS = message => {"
+                  "  if (message.actionName === 'legacy-share') shareReplies.push(message.parameters);"
+                  "  else receive(message);"
+                  "}; return true;"
+             web:web];
+    UIViewController *page = self.navigation.topViewController;
+    for (NSNumber *completed in @[ @NO, @YES ]) {
+        [self post:@{
+            @"actionName" : @"xhShowShareMenu",
+            @"callbackActionName" : @"legacy-share",
+            @"parameters" : @{@"title" : @"Book", @"link" : @"https://example.com/book", @"desc" : @"Description",
+                              @"imgUrl" : @""}
+        } web:web];
+        [self waitUntil:^BOOL {
+            return [page.presentedViewController isKindOfClass:UIActivityViewController.class] &&
+                   !page.presentedViewController.transitionCoordinator;
+        }];
+        UIActivityViewController *share = (UIActivityViewController *)page.presentedViewController;
+        share.completionWithItemsHandler(nil, completed.boolValue, nil, nil);
+        [share dismissViewControllerAnimated:NO completion:nil];
+        [self waitUntil:^BOOL {
+            return page.presentedViewController == nil;
+        }];
+        if (completed.boolValue) {
+            [self waitForScript:@"shareReplies.length === 1" web:web];
+        }
+        NSArray *expected = completed.boolValue ? @[ @{} ] : @[];
+        XCTAssertEqualObjects([self script:@"return shareReplies;" web:web], expected);
+    }
 }
 
 - (void)testHiddenParentCannotCloseChild {

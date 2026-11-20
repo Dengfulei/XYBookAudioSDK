@@ -20,8 +20,10 @@ FOUNDATION_EXPORT NSDictionary *XYBookAudioSnckErrorPayload(NSError *error);
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyActionName;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyParameters;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyCallbackActionName;
+FOUNDATION_EXPORT NSString *const XYBookAudioKeyData;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyCode;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyMessage;
+FOUNDATION_EXPORT NSString *const XYBookAudioKeyName;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyBookId;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyTitle;
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyChapters;
@@ -96,6 +98,7 @@ FOUNDATION_EXPORT NSString *const XYBookAudioActionCanIUse;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionOpenWindow;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionCloseWindow;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionGoLogin;
+FOUNDATION_EXPORT NSString *const XYBookAudioKeyURL;
 
 FOUNDATION_EXPORT NSString *const XYBookAudioActionGetUserInfo;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionGetSystemInfo;

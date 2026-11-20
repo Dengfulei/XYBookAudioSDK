@@ -89,8 +89,10 @@ NSDictionary *XYBookAudioSnckErrorPayload(NSError *error) {
 NSString *const XYBookAudioKeyActionName = @"actionName";
 NSString *const XYBookAudioKeyParameters = @"parameters";
 NSString *const XYBookAudioKeyCallbackActionName = @"callbackActionName";
+NSString *const XYBookAudioKeyData = @"data";
 NSString *const XYBookAudioKeyCode = @"code";
 NSString *const XYBookAudioKeyMessage = @"message";
+NSString *const XYBookAudioKeyName = @"name";
 NSString *const XYBookAudioKeyBookId = @"bookId";
 NSString *const XYBookAudioKeyTitle = @"title";
 NSString *const XYBookAudioKeyChapters = @"chapters";
@@ -164,6 +166,7 @@ NSString *const XYBookAudioActionCanIUse = @"xhCanIUse";
 NSString *const XYBookAudioActionOpenWindow = @"xhOpenWindow";
 NSString *const XYBookAudioActionCloseWindow = @"xhCloseWindow";
 NSString *const XYBookAudioActionGoLogin = @"xhGoLogin";
+NSString *const XYBookAudioKeyURL = @"url";
 
 NSString *const XYBookAudioActionGetSystemInfo = @"xhGetSystemInfo";
 NSString *const XYBookAudioActionGetUserInfo = @"xhGetUserInfo";

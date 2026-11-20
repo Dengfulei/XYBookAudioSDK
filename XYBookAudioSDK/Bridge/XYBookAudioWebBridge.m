@@ -8,8 +8,23 @@ static NSUInteger const XYBookAudioSnckMaximumMessageLength = 80 * 1024;
 /// 中文 UTF-8 经两次 URI 编码最多放大 15 倍；传输限额为原 JSON 限额预留编码与消息头空间。
 static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024;
 
+static NSArray<NSString *> *XYBookAudioLegacyUIActions(void) {
+    return @[
+        XYBookAudioActionOpenWindow, XYBookAudioActionCloseWindow, XYBookAudioActionGoLogin,
+        XYBookAudioActionShowShareMenu
+    ];
+}
+
+static BOOL XYBookAudioIsLegacyInfoAction(NSString *action) {
+    return [action isEqual:XYBookAudioActionGetUserInfo] || [action isEqual:XYBookAudioActionGetSystemInfo];
+}
+
 static SEL XYBookAudioH5Selector(id action) {
-    if (!XYBookAudioString(action) || ![action hasPrefix:XYBookAudioSnckMethodPrefix] || [action containsString:@":"]) {
+    if (!XYBookAudioString(action) || [action containsString:@":"]) {
+        return NULL;
+    }
+    if (![action hasPrefix:XYBookAudioSnckMethodPrefix] && ![action isEqual:XYBookAudioActionCanIUse] &&
+        !XYBookAudioIsLegacyInfoAction(action) && ![XYBookAudioLegacyUIActions() containsObject:action]) {
         return NULL;
     }
     return NSSelectorFromString([action stringByAppendingString:@":"]);
@@ -34,7 +49,7 @@ static SEL XYBookAudioH5Selector(id action) {
 
 @implementation XYBookAudioWebBridge
 
-/// 能力查询和分发共用 SNCK 同名方法的查找规则。
+/// 能力查询和分发共用 H5 同名方法的查找规则。
 + (BOOL)supportsAction:(NSString *)action {
     SEL selector = XYBookAudioH5Selector(action);
     return selector && [self instancesRespondToSelector:selector];
@@ -125,7 +140,13 @@ static SEL XYBookAudioH5Selector(id action) {
     NSString *action = request[XYBookAudioKeyActionName];
     id callback = request[XYBookAudioKeyCallbackActionName];
     if (callback && !XYBookAudioString(callback)) {
-        [self reportInvalidRequest:@"callbackActionName must be a nonempty string when provided."];
+        NSString *errorMessage = @"callbackActionName must be a nonempty string when provided.";
+        if (XYBookAudioIsLegacyInfoAction(action)) {
+            [self answerRequest:request result:nil error:XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
+                     generation:self.generation];
+        } else {
+            [self reportInvalidRequest:errorMessage];
+        }
         return;
     }
     SEL selector = XYBookAudioH5Selector(action);
@@ -138,15 +159,24 @@ static SEL XYBookAudioH5Selector(id action) {
     }
     id parameters = request[XYBookAudioKeyParameters];
     if (parameters && ![parameters isKindOfClass:NSDictionary.class]) {
-        [self send:callback
-            parameters:XYBookAudioSnckErrorPayload(XYBookAudioSnckError(-2, @"parameters must be an object."))
-            generation:self.generation];
+        NSString *errorMessage = @"parameters must be an object.";
+        if ([XYBookAudioLegacyUIActions() containsObject:action]) {
+            [self.logger error:XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
+                     component:XYBookAudioLogBridge
+                     operation:action];
+        } else {
+            NSError *error = XYBookAudioIsLegacyInfoAction(action)
+                                 ? XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
+                                 : XYBookAudioSnckError(-2, errorMessage);
+            [self answerRequest:request result:nil error:error generation:self.generation];
+        }
         return;
     }
     if (!self.SDK) {
-        [self send:callback
-            parameters:XYBookAudioSnckErrorPayload(XYBookAudioSnckError(4102, @"The SDK is unavailable."))
-            generation:self.generation];
+        NSString *errorMessage = @"The SDK is unavailable.";
+        NSError *error = XYBookAudioIsLegacyInfoAction(action) ? XYBookAudioError(XYBookAudioDisposed, errorMessage)
+                                                              : XYBookAudioSnckError(4102, errorMessage);
+        [self answerRequest:request result:nil error:error generation:self.generation];
         return;
     }
     // 无业务参数的方法允许省略 parameters；需要字段的方法继续由各自业务能力校验。
@@ -162,9 +192,120 @@ static SEL XYBookAudioH5Selector(id action) {
     [invocation invoke];
 }
 
+#pragma mark - 原有 H5 交互
+
+- (void)xhCloseWindow:(NSDictionary *)request {
+    if (![self hasWindowContextForAction:XYBookAudioActionCloseWindow]) {
+        return;
+    }
+    NSError *error = [self.windowRouter closeWindowFromPage:self.page beforeClose:nil];
+    [self logWindowError:error action:XYBookAudioActionCloseWindow];
+}
+
+- (void)xhOpenWindow:(NSDictionary *)request {
+    id address = request[XYBookAudioKeyParameters][XYBookAudioKeyURL];
+    NSURL *URL = XYBookAudioString(address) ? [NSURL URLWithString:address] : nil;
+    if (!URL.scheme.length) {
+        [self logWindowError:XYBookAudioError(XYBookAudioInvalidArgument,
+                                              @"xhOpenWindow requires an absolute parameters.url.")
+                      action:XYBookAudioActionOpenWindow];
+        return;
+    }
+    if (![self hasWindowContextForAction:XYBookAudioActionOpenWindow]) {
+        return;
+    }
+    NSError *error = [self.windowRouter openWindowWithURL:URL title:nil fromPage:self.page];
+    [self logWindowError:error action:XYBookAudioActionOpenWindow];
+}
+
+- (void)xhGoLogin:(NSDictionary *)request {
+    UIViewController *page = self.page;
+    UINavigationController *navigation = page.navigationController;
+    if (!page.viewIfLoaded.window || page != navigation.topViewController || navigation.transitionCoordinator ||
+        navigation.isBeingDismissed || navigation.presentedViewController || page.presentedViewController) {
+        [self logWindowError:XYBookAudioError(XYBookAudioBusy, @"The current page is unavailable for login.")
+                      action:XYBookAudioActionGoLogin];
+        return;
+    }
+    XYBookAudioLogger *logger = self.logger;
+    [self.SDK requestHostLoginFromViewController:page completion:^(NSDictionary *result, NSError *error) {
+        if (error) {
+            [logger error:error component:XYBookAudioLogBridge operation:XYBookAudioActionGoLogin];
+        } else if ([result[XYBookAudioKeyStatus] isEqual:XYBookAudioValueFailed]) {
+            [logger write:XYBookAudioLogLevelWarning component:XYBookAudioLogBridge
+                  message:@"xhGoLogin failed at host."];
+        }
+    }];
+}
+
+- (void)xhCanIUse:(NSDictionary *)request {
+    NSString *callback = request[XYBookAudioKeyCallbackActionName];
+    if (!callback) {
+        [self reportInvalidRequest:@"xhCanIUse requires callbackActionName."];
+        return;
+    }
+    NSString *method = request[XYBookAudioKeyParameters][XYBookAudioKeyName];
+    BOOL supported = [self.class supportsAction:method];
+    [self send:callback parameters:@{XYBookAudioKeyData : @(supported ? 1 : 0)} generation:self.generation];
+}
+
+- (void)xhGetSystemInfo:(NSDictionary *)request {
+    [self.SDK executeAction:XYBookAudioActionGetSystemInfo parameters:request[XYBookAudioKeyParameters]
+                 completion:[self callbackForRequest:request]];
+}
+
+- (void)xhGetUserInfo:(NSDictionary *)request {
+    NSDictionary *parameters = request[XYBookAudioKeyParameters];
+    XYBookAudioCompletion reply = [self callbackForRequest:request];
+    id goLogin = parameters[XYBookAudioKeyGoLogin];
+    UIViewController *page = self.page;
+    if ([goLogin isKindOfClass:NSNumber.class] && [goLogin boolValue] &&
+        (!page || page != page.navigationController.topViewController)) {
+        reply(nil, XYBookAudioError(XYBookAudioBusy, @"Login requires the current web page."));
+        return;
+    }
+    [self.SDK executeAction:XYBookAudioActionGetUserInfo parameters:parameters completion:reply];
+}
+
+- (void)xhShowShareMenu:(NSDictionary *)request {
+    UIViewController *page = self.page;
+    if (!page || page != page.navigationController.topViewController) {
+        [self logWindowError:XYBookAudioError(XYBookAudioBusy, @"Sharing requires the current web page.")
+                      action:XYBookAudioActionShowShareMenu];
+        return;
+    }
+    NSUInteger generation = self.generation;
+    __weak typeof(self) weakSelf = self;
+    [self.SDK executeAction:XYBookAudioActionShowShareMenu parameters:request[XYBookAudioKeyParameters]
+                 completion:^(NSDictionary *result, NSError *error) {
+                     if (error) {
+                         [weakSelf logWindowError:error action:XYBookAudioActionShowShareMenu];
+                     } else if ([result[XYBookAudioKeyStatus] isEqual:XYBookAudioValueAccepted]) {
+                         [weakSelf send:request[XYBookAudioKeyCallbackActionName] parameters:@{} generation:generation];
+                     } else if (![result[XYBookAudioKeyStatus] isEqual:XYBookAudioValueCancelled]) {
+                         [weakSelf.logger write:XYBookAudioLogLevelWarning component:XYBookAudioLogBridge
+                                        message:@"xhShowShareMenu was not accepted by the host."];
+                     }
+                 }];
+}
+
+- (BOOL)hasWindowContextForAction:(NSString *)action {
+    if (!self.windowRouter || !self.page) {
+        [self logWindowError:XYBookAudioError(XYBookAudioBusy, @"The web window is unavailable.") action:action];
+        return NO;
+    }
+    return YES;
+}
+
+- (void)logWindowError:(NSError *)error action:(NSString *)action {
+    if (error) {
+        [self.logger error:error component:XYBookAudioLogBridge operation:action];
+    }
+}
+
 #pragma mark - SNCK v1
 
-/// Ready 返回当前快照，能力列表来自实际实现的 SNCK 同名方法。
+/// Ready 返回当前快照，能力列表来自实际支持的 H5 方法。
 - (void)xhSnckReady:(NSDictionary *)request {
     XYBookAudioSDKManager *SDK = self.SDK;
     self.lastSnckPlayback = [SDK snckPlayback];
@@ -369,9 +510,24 @@ static SEL XYBookAudioH5Selector(id action) {
     NSUInteger generation = self.generation;
     __weak typeof(self) weakSelf = self;
     return ^(NSDictionary *result, NSError *error) {
-        NSDictionary *parameters = error ? XYBookAudioSnckErrorPayload(error) : result;
-        [weakSelf send:request[XYBookAudioKeyCallbackActionName] parameters:parameters generation:generation];
+        [weakSelf answerRequest:request result:result error:error generation:generation];
     };
+}
+
+- (void)answerRequest:(NSDictionary *)request
+               result:(NSDictionary *)result
+                error:(NSError *)error
+           generation:(NSUInteger)generation {
+    NSString *action = request[XYBookAudioKeyActionName];
+    if (error && XYBookAudioIsLegacyInfoAction(action)) {
+        [self.logger error:error component:XYBookAudioLogBridge operation:action];
+        NSDictionary *payload =
+            @{XYBookAudioKeyCode : XYBookAudioErrorName(error), XYBookAudioKeyMessage : error.localizedDescription};
+        [self send:XYBookAudioErrorEvent parameters:payload generation:generation];
+        return;
+    }
+    NSDictionary *parameters = error ? XYBookAudioSnckErrorPayload(error) : result;
+    [self send:request[XYBookAudioKeyCallbackActionName] parameters:parameters generation:generation];
 }
 
 #pragma mark - 页面生命周期与回调
