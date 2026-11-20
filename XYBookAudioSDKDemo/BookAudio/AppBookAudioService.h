@@ -21,6 +21,9 @@ FOUNDATION_EXPORT NSString *const AppBookAudioServiceEventParametersKey;
 
 /// 按需初始化并打开听书；重复打开及初始化失败均通过 completion 返回，不长期持有 controller。
 - (void)openFromViewController:(UIViewController *)controller completion:(void (^)(NSError *_Nullable error))completion;
+- (void)openFromViewController:(UIViewController *)controller
+                         style:(XYBookAudioOpenStyle)style
+                    completion:(void (^)(NSError *_Nullable error))completion;
 
 /// 未初始化时返回 nil；读取已有会话快照不创建播放器或页面。
 - (nullable NSDictionary *)getSnapshot;

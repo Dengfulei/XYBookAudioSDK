@@ -18,6 +18,7 @@
 @property (nonatomic, strong) XYBookAudioBridgeWebView *webView;
 @property (nonatomic, strong) UIActivityIndicatorView *spinner;
 @property (nonatomic, strong) UIButton *retryButton;
+@property (nonatomic) BOOL usesHostNavigation;
 @property (nonatomic) BOOL closing;
 @property (nonatomic, strong) XYBookAudioUserAgent *userAgentProvider;
 
@@ -29,6 +30,7 @@
               configuration:(XYBookAudioConfiguration *)configuration
                    entryURL:(NSURL *)entryURL
                windowRouter:(id<XYBookAudioWindowRouting>)windowRouter
+         usesHostNavigation:(BOOL)usesHostNavigation
                      logger:(XYBookAudioLogger *)logger {
     if ((self = [super initWithNibName:nil bundle:nil])) {
         _SDK = SDK;
@@ -36,6 +38,7 @@
         _configuration = configuration;
         _entryURL = entryURL;
         _windowRouter = windowRouter;
+        _usesHostNavigation = usesHostNavigation;
     }
     return self;
 }
@@ -45,10 +48,12 @@
     [super viewDidLoad];
     self.title = self.title ?: @"听书";
     self.view.backgroundColor = UIColor.systemBackgroundColor;
-    self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"返回"
-                                                                             style:UIBarButtonItemStylePlain
-                                                                            target:self
-                                                                            action:@selector(goBack)];
+    if (!self.usesHostNavigation) {
+        self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"返回"
+                                                                                 style:UIBarButtonItemStylePlain
+                                                                                target:self
+                                                                                action:@selector(goBack)];
+    }
     self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"关闭"
                                                                               style:UIBarButtonItemStylePlain
                                                                              target:self
@@ -76,7 +81,9 @@
 /// 宿主登录页可能隐藏导航栏；返回时恢复 SDK 导航，保证用户仍能返回或关闭。
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
-    [self.navigationController setNavigationBarHidden:NO animated:animated];
+    if (!self.usesHostNavigation) {
+        [self.navigationController setNavigationBarHidden:NO animated:animated];
+    }
 }
 
 /// 以容器安全区约束页面和重试控件，保留各尺寸下的原生导航入口。
@@ -192,6 +199,11 @@
     [super didMoveToParentViewController:parent];
     if (!parent) {
         [self invalidatePage];
+        dispatch_block_t didLeaveNavigation = self.didLeaveNavigation;
+        self.didLeaveNavigation = nil;
+        if (didLeaveNavigation) {
+            didLeaveNavigation();
+        }
     }
 }
 

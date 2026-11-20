@@ -14,16 +14,20 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 SDK 在加载 H5 前通过临时 WebView 的空白本地文档读取实际 `navigator.userAgent`，追加固定标识 `MediaConvergenceXinhua` 并设置该实例的 `customUserAgent`，保留系统 UA 的移动／桌面模式内容。首次页面加载即生效，重载和重开不会重复追加；仅影响当前 SDK 页面，宿主无需额外设置 UA。读取失败会显示可重试的页面初始化错误，诊断信息遵循日志配置，关闭页面后不继续加载。H5 可用 `navigator.userAgent.includes('MediaConvergenceXinhua')` 识别端内环境。UA 不携带账号信息，身份查询和变更继续使用 JS Bridge 协议。
 
-```swift
-// SDK 由宿主初始化并持有；公开接口不要求宿主创建 WebView。
-sdk.open(from: presenter) { error in
-    if let error { print(error.localizedDescription) }
-}
+```objc
+// 宿主按业务入口选择 XYBookAudioOpenStylePush 或 XYBookAudioOpenStylePresent。
+[sdk openFromViewController:self style:XYBookAudioOpenStylePush completion:^(NSError *error) {
+    if (error) {
+        [self handleBookAudioOpenError:error];
+    }
+}];
 ```
 
-同实例同时只能有一个模态听书容器；重复打开或不可用 presenter 返回 BUSY。H5 可用 `xhSnckOpenPage` 打开子网页，用 `xhSnckClosePage` 逐层关闭；关闭首页才退出容器。播放器、队列和定时器始终属于 SDK 会话，关页后保留。新开或重开 H5 调用 `xhSnckReady`，从返回的用户和播放快照恢复展示。
+`XYBookAudioOpenStylePush` 将听书首页推入宿主导航栈，要求传入当前可见的栈顶控制器。没有导航栈时返回 `INVALID_ARGUMENT`。宿主决定导航栏的显示状态，关闭听书首页后回到宿主页。`XYBookAudioOpenStylePresent` 全屏展示 SDK 自己的导航容器。已有的 `openFromViewController:completion:` 默认使用 Present。打开回调确认原生展示，网页加载结果由 SDK 页面处理。
 
-网页窗口由 framework 自行管理，宿主不需要新增路由代理或调用原 App 的导航工具。所有窗口沿用初始可信地址范围；子页登录回调传入当前顶层页面，宿主仍通过该页的 `navigationController` push 登录页。`dispose` 会关闭整个窗口栈并释放会话。新页面的地址与标题参数见 [SNCK v1](H5Protocol.md)。
+每个 SDK 实例同一时间只打开一组听书页面。重复打开或当前控制器无法导航时返回 `BUSY`。H5 用原有接口打开和关闭子页，两种模式都复用当前导航栈和初始可信地址范围。关页后保留播放器、队列和定时器。新开或重开 H5 调用 `xhSnckReady` 获取当前快照。
+
+宿主登录使用 SDK 回调传入的当前网页及其 `navigationController`。`dispose` 释放会话。Present 模式关闭 SDK 导航容器，Push 模式只移除这次打开的 SDK 网页控制器。新页面的地址与标题参数见 [SNCK v1](H5Protocol.md)。
 
 ## WebView 调试
 
@@ -51,7 +55,9 @@ Safari 网页检查默认关闭。联调时在初始化 SDK 前设置 `configura
 #import "BookAudio/AppBookAudioService.h"
 
 __weak typeof(self) weakSelf = self;
-[AppBookAudioService.sharedInstance openFromViewController:self completion:^(NSError *error) {
+[AppBookAudioService.sharedInstance openFromViewController:self
+                                                    style:XYBookAudioOpenStylePresent
+                                               completion:^(NSError *error) {
     if (error) {
         weakSelf.status.text = error.localizedDescription;
     }
@@ -81,13 +87,13 @@ if (![AppBookAudioService.sharedInstance configureWithConfiguration:configuratio
 
 生命周期约束：
 
-- `openFromViewController:completion:` 复用已有会话，仅初始化或展示失败时返回错误；同一时间只打开一个听书容器，重复打开返回 BUSY。
+- 两个打开入口均复用已有会话。同一时间只打开一组听书页面，重复打开返回 `BUSY`。
 - 页面销毁只移除自己的 `AppBookAudioServiceEventNotification` 监听，不调用 SDK `dispose` 或服务 `shutdown`。通知在主线程发送，`object` 是服务实例，字段使用公开的 `AppBookAudioServiceEventNameKey`、`AppBookAudioServiceEventParametersKey`。
 - 账号登录、退出和切换由 `AppAccountService` 完成，先提交状态，再发送 `AppAccountDidChangeNotification`。`AppBookAudioService` 监听通知并调用 `refreshHostIdentity`；`bookAudioUserIdentity` 每次读取宿主账号，不再缓存或修改身份。账号模块和页面无需调用任何 SDK 的退出接口，登录状态不等于购买权益。
 - 其他播放器启动前调用 `yieldPlayback`；单纯停止听书用 `stop`，两者都保留 SDK 实例。
 - 明确结束听书服务用 `shutdown`，释放会话与事件订阅，同时保留最近成功配置及宿主账号。等待已有容器关闭后，可直接再次打开，或重新配置入口。未初始化时 `getSnapshot` 返回 nil。
 
-登录使用 SDK 回调传入的 `controller.navigationController` push；接入类只弱引用导航和返回页面。账号模块先提交登录后的身份，接入层只负责将 `AppLoginResult` 转换为 SDK 结果并返回；按钮取消、导航返回和容器关闭都只结算一次。不要使用被听书模态容器覆盖的原宿主导航栈。接入层对接宿主已有账号通知、身份读取和登录入口，framework 本身不需要改动。
+登录使用 SDK 回调传入的 `controller.navigationController` push，接入类只弱引用导航和返回页面。登录页仍在栈顶且来源网页仍在栈中时，登录结束回到来源网页。账号模块先提交登录后的身份，接入层负责将 `AppLoginResult` 转换为 SDK 结果。按钮取消、导航返回和容器关闭都只结算一次。
 
 宿主页面退出账号只调用账号模块：
 

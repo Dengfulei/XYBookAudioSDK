@@ -14,8 +14,9 @@ import XYBookAudioSDK
 
     static func open(
         _ sdk: XYBookAudioSDKManager, from presenter: UIViewController,
+        style: XYBookAudioOpenStyle = .present,
         completion: @escaping @Sendable (Error?) -> Void
     ) {
-        sdk.open(from: presenter, completion: completion)
+        sdk.open(from: presenter, style: style, completion: completion)
     }
 }

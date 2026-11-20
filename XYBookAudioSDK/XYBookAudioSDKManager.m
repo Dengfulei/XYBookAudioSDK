@@ -3,7 +3,7 @@
 #import "XYBookAudioMessageProtocol.h"
 #import "XYBookAudioSession.h"
 #import "XYBookAudioHostActions.h"
-#import "XYBookAudioNavigationController.h"
+#import "XYBookAudioWindowCoordinator.h"
 #import "XYBookAudioWebBridge.h"
 
 #import "XYBookAudioLogger.h"
@@ -15,7 +15,7 @@
 @property (nonatomic, strong) XYBookAudioConfiguration *configuration;
 @property (nonatomic, strong) XYBookAudioSession *session;
 @property (nonatomic, strong) XYBookAudioHostActions *hostActions;
-@property (nonatomic, strong) XYBookAudioNavigationController *navigation;
+@property (nonatomic, strong) XYBookAudioWindowCoordinator *windowCoordinator;
 @property (nonatomic, strong) NSMutableDictionary<NSUUID *, XYBookAudioEventHandler> *subscriptions;
 @property (nonatomic) BOOL disposed;
 @property (nonatomic) NSUInteger snckEventVersion;
@@ -66,28 +66,52 @@
 
 /// 校验展示条件并保留当前页面；回调只确认原生展示，WebView 的加载失败由页面提供重试。
 - (void)openFromViewController:(UIViewController *)controller completion:(void (^)(NSError *))completion {
+    [self openFromViewController:controller style:XYBookAudioOpenStylePresent completion:completion];
+}
+
+- (void)openFromViewController:(UIViewController *)controller
+                         style:(XYBookAudioOpenStyle)style
+                    completion:(void (^)(NSError *))completion {
     NSParameterAssert(NSThread.isMainThread);
     if (self.disposed) {
         completion(XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
         return;
     }
-    if (self.navigation || controller.presentedViewController || controller.isBeingDismissed ||
+    if (style != XYBookAudioOpenStylePresent && style != XYBookAudioOpenStylePush) {
+        completion(XYBookAudioError(XYBookAudioInvalidArgument, @"Unknown listening page open style."));
+        return;
+    }
+    if (self.windowCoordinator.navigation || controller.presentedViewController || controller.isBeingDismissed ||
         !controller.viewIfLoaded.window) {
         completion(XYBookAudioError(XYBookAudioBusy, @"A listening page is open or the presenter is unavailable."));
         return;
     }
-    [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogPage message:@"Opening listening page."];
-    XYBookAudioNavigationController *navigation =
-        [[XYBookAudioNavigationController alloc] initWithSDK:self configuration:self.configuration logger:self.logger];
-    self.navigation = navigation;
+    if (style == XYBookAudioOpenStylePush) {
+        UINavigationController *navigation = controller.navigationController;
+        if (!navigation) {
+            completion(XYBookAudioError(XYBookAudioInvalidArgument, @"Push requires a host navigation controller."));
+            return;
+        }
+        if (navigation.topViewController != controller || navigation.transitionCoordinator ||
+            navigation.isBeingDismissed || navigation.presentedViewController) {
+            completion(XYBookAudioError(XYBookAudioBusy, @"Push requires the current visible host page."));
+            return;
+        }
+    }
+    [self.windowCoordinator closeAllPages];
+    XYBookAudioWindowCoordinator *windows = [[XYBookAudioWindowCoordinator alloc] initWithSDK:self
+                                                                                configuration:self.configuration
+                                                                                       logger:self.logger
+                                                                                        style:style];
+    self.windowCoordinator = windows;
     __weak typeof(self) weakSelf = self;
-    navigation.closed = ^{
-        weakSelf.navigation = nil;
+    __weak XYBookAudioWindowCoordinator *weakWindows = windows;
+    windows.closed = ^{
+        if (weakSelf.windowCoordinator == weakWindows) {
+            weakSelf.windowCoordinator = nil;
+        }
     };
-    navigation.modalPresentationStyle = UIModalPresentationFullScreen;
-    [controller presentViewController:navigation animated:YES completion:^{
-        completion(nil);
-    }];
+    [windows openFromViewController:controller completion:completion];
 }
 
 /// 只记录已实现的动作名称；完整参数、回执和未知动作不进入诊断，原始 completion 的结果保持不变。
@@ -151,7 +175,7 @@
         completion(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"This is not a native command."));
         return;
     }
-    UIViewController *presenter = self.navigation.topViewController;
+    UIViewController *presenter = self.windowCoordinator.topPage;
     if ([action isEqual:XYBookAudioActionGetSystemInfo]) {
         [self.hostActions getSystemInfoFrom:presenter completion:completion];
         return;
@@ -196,7 +220,7 @@
         completion(nil, XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
         return;
     }
-    if (controller != self.navigation.topViewController) {
+    if (!controller || controller != self.windowCoordinator.topPage) {
         completion(nil, XYBookAudioError(XYBookAudioBusy, @"Login requires the current SDK page."));
         return;
     }
@@ -276,7 +300,7 @@
     }
     self.disposed = YES;
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogSDK message:@"SDK disposing."];
-    [self.navigation closeAllPages];
+    [self.windowCoordinator closeAllPages];
     [self.hostActions dispose];
     [self.session dispose];
     [self.subscriptions removeAllObjects];

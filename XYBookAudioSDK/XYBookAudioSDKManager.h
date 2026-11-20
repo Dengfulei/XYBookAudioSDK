@@ -7,6 +7,11 @@ NS_ASSUME_NONNULL_BEGIN
 typedef void (^XYBookAudioCompletion)(NSDictionary *_Nullable result, NSError *_Nullable error);
 typedef void (^XYBookAudioEventHandler)(NSString *event, NSDictionary *parameters);
 
+typedef NS_ENUM(NSInteger, XYBookAudioOpenStyle) {
+    XYBookAudioOpenStylePresent,
+    XYBookAudioOpenStylePush
+};
+
 @interface XYBookAudioSDKManager : NSObject
 
 /// 复制配置并创建独立会话；无效配置／身份返回 nil 和 error，不产生网络或音频激活副作用。宿主需持有 SDK 和 host。
@@ -20,6 +25,11 @@ typedef void (^XYBookAudioEventHandler)(NSString *event, NSDictionary *parameter
 /// 模态打开内置听书窗口栈；H5 可在栈内开关子页，重复打开容器返回 BUSY。
 /// completion 仅表示容器已展示，不代表网页加载或播放成功。
 - (void)openFromViewController:(UIViewController *)controller completion:(void (^)(NSError *_Nullable error))completion;
+
+/// 宿主选择全屏模态或 push。Push 要求 controller 是宿主导航栈当前可见的栈顶控制器。
+- (void)openFromViewController:(UIViewController *)controller
+                         style:(XYBookAudioOpenStyle)style
+                    completion:(void (^)(NSError *_Nullable error))completion;
 
 /// 执行已确认的播放命令、宿主资料查询及分享；parameters 为业务参数，completion 在主线程返回结果或错误，日志不改变回执。
 - (void)executeAction:(NSString *)action

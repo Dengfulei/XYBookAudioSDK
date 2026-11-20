@@ -3,15 +3,15 @@
 #import <WebKit/WebKit.h>
 #import "../XYBookAudioSDKDemo/BookAudio/AppBookAudioService.h"
 #import "../XYBookAudioSDKDemo/Account/AppAccountService.h"
-#import "../XYBookAudioSDK/Container/XYBookAudioWindowRouting.h"
 
-@interface XYBookAudioWindowTests : XCTestCase
+@interface XYBookAudioWindowTests : XCTestCase <UINavigationControllerDelegate>
 @property (nonatomic, strong) AppBookAudioService *service;
 @property (nonatomic, strong) UIViewController *presenter;
 @property (nonatomic, strong) NSURL *resources;
 @property (nonatomic, strong) NSURL *entryURL;
 @property (nonatomic, strong) NSURL *childURL;
 @property (nonatomic, strong) NSMutableArray<NSString *> *bridgeWarnings;
+@property (nonatomic, strong) UINavigationController *hostNavigation;
 @end
 
 @implementation XYBookAudioWindowTests
@@ -56,6 +56,9 @@
     [self waitUntil:^BOOL {
         return self.presenter.presentedViewController == nil;
     }];
+    if (self.hostNavigation) {
+        UIApplication.sharedApplication.delegate.window.rootViewController = self.presenter;
+    }
     NSError *error = nil;
     XCTAssertTrue([NSFileManager.defaultManager removeItemAtURL:self.resources error:&error]);
     XCTAssertNil(error);
@@ -73,7 +76,7 @@
 }
 
 - (UINavigationController *)navigation {
-    return (UINavigationController *)self.presenter.presentedViewController;
+    return self.hostNavigation ?: (UINavigationController *)self.presenter.presentedViewController;
 }
 
 /// 通过 UIKit 视图树定位真实页面或账号按钮。
@@ -119,15 +122,19 @@
     [self waitUntil:^BOOL {
         return self.navigation.viewControllers.count == depth && !self.navigation.transitionCoordinator;
     }];
-    WKWebView *web = (WKWebView *)[self findView:self.navigation.topViewController.view matching:^BOOL(UIView *view) {
-        return [view isKindOfClass:WKWebView.class];
-    }];
+    WKWebView *web = [self currentWebView];
     XCTAssertNotNil(web);
     [self waitUntil:^BOOL {
         return !web.loading && [web.title isEqualToString:@"听书集成验证"];
     }];
     XCTAssertEqualObjects([self script:@"return typeof call;" web:web], @"function");
     return web;
+}
+
+- (WKWebView *)currentWebView {
+    return (WKWebView *)[self findView:self.navigation.topViewController.view matching:^BOOL(UIView *view) {
+        return [view isKindOfClass:WKWebView.class];
+    }];
 }
 
 - (WKWebView *)openRoot {
@@ -260,11 +267,10 @@
     }];
 }
 
-/// 本地夹具用原生导航创建子页，H5 开页仍需可信 HTTPS 地址。
+/// 旧版 H5 入口支持当前夹具的可信本地地址。
 - (void)openFixturePage:(NSURL *)URL {
-    UINavigationController *navigation = self.navigation;
-    id<XYBookAudioWindowRouting> router = (id<XYBookAudioWindowRouting>)navigation;
-    XCTAssertNil([router openWindowWithURL:URL title:nil fromPage:navigation.topViewController]);
+    [self post:@{@"actionName" : @"xhOpenWindow", @"parameters" : @{@"url" : URL.absoluteString}}
+           web:[self currentWebView]];
 }
 
 - (void)testNestedWindowsCloseIndividuallyAndPreserveQueue {
@@ -586,6 +592,104 @@
     }];
     XCTAssertNil([self.service getSnapshot]);
     [self openRoot];
+}
+
+- (UIViewController *)installHostNavigation {
+    UIViewController *host = [UIViewController new];
+    self.hostNavigation = [[UINavigationController alloc] initWithRootViewController:host];
+    self.hostNavigation.delegate = self;
+    UIApplication.sharedApplication.delegate.window.rootViewController = self.hostNavigation;
+    [self waitUntil:^BOOL {
+        return host.viewIfLoaded.window != nil;
+    }];
+    return host;
+}
+
+- (WKWebView *)openPushedRootFrom:(UIViewController *)host {
+    XCTestExpectation *opened = [self expectationWithDescription:@"Push 打开听书首页"];
+    [self.service openFromViewController:host style:XYBookAudioOpenStylePush completion:^(NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertFalse(self.hostNavigation.viewControllers.lastObject == host);
+        [opened fulfill];
+    }];
+    [self waitForExpectations:@[ opened ] timeout:5];
+    return [self pageAtDepth:2];
+}
+
+- (void)testPushUsesHostStackAndAllowsReopenAfterClosing {
+    UIViewController *host = [self installHostNavigation];
+    WKWebView *root = [self openPushedRootFrom:host];
+    XCTAssertNil(host.presentedViewController);
+    XCTAssertEqual(self.hostNavigation.delegate, self);
+    [self script:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:root];
+    [self openFixturePage:self.childURL];
+    WKWebView *child = [self pageAtDepth:3];
+    [self post:@{@"actionName" : @"xhGoLogin"} web:child];
+    [self waitUntil:^BOOL {
+        return self.hostNavigation.viewControllers.count == 4 && !self.hostNavigation.transitionCoordinator;
+    }];
+    UIButton *button =
+        (UIButton *)[self findView:self.hostNavigation.topViewController.view matching:^BOOL(UIView *view) {
+            return [view isKindOfClass:UIButton.class] &&
+                   [[(UIButton *)view titleForState:UIControlStateNormal] isEqual:@"登录测试账号"];
+        }];
+    XCTAssertNotNil(button);
+    [button sendActionsForControlEvents:UIControlEventTouchUpInside];
+    XCTAssertEqual([self pageAtDepth:3], child);
+    XCTAssertGreaterThan(AppAccountService.sharedInstance.userId.length, 0u);
+    [self post:@{@"actionName" : @"xhCloseWindow"} web:child];
+    XCTAssertEqual([self pageAtDepth:2], root);
+    [self post:@{@"actionName" : @"xhSnckClosePage"} web:root];
+    [self waitUntil:^BOOL {
+        return self.hostNavigation.topViewController == host && !self.hostNavigation.transitionCoordinator;
+    }];
+    root = [self openPushedRootFrom:host];
+    XCTAssertEqualObjects([self script:@"return (await call('xhSnckAudioGetState')).item.id;" web:root], @"fixture");
+    [self.hostNavigation popViewControllerAnimated:NO];
+    [self waitUntil:^BOOL {
+        return self.hostNavigation.topViewController == host && !self.hostNavigation.transitionCoordinator;
+    }];
+    XCTestExpectation *presented = [self expectationWithDescription:@"返回后切换到 Present"];
+    [self.service openFromViewController:host style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
+        XCTAssertNil(error);
+        [presented fulfill];
+    }];
+    [self waitForExpectations:@[ presented ] timeout:5];
+    XCTAssertTrue([host.presentedViewController isKindOfClass:UINavigationController.class]);
+    XCTAssertEqualObjects(self.hostNavigation.viewControllers, (@[ host ]));
+    [self.service shutdown];
+    [self waitUntil:^BOOL {
+        return host.presentedViewController == nil;
+    }];
+}
+
+- (void)testPushDisposalPreservesHostControllersAndRejectsInvalidSource {
+    XCTestExpectation *rejected = [self expectationWithDescription:@"没有导航栈时拒绝 Push"];
+    [self.service openFromViewController:self.presenter style:XYBookAudioOpenStylePush completion:^(NSError *error) {
+        XCTAssertEqualObjects(error.domain, XYBookAudioErrorDomain);
+        XCTAssertEqual(error.code, XYBookAudioInvalidArgument);
+        [rejected fulfill];
+    }];
+    [self waitForExpectations:@[ rejected ] timeout:5];
+
+    UIViewController *host = [self installHostNavigation];
+    self.hostNavigation.navigationBarHidden = YES;
+    [self openPushedRootFrom:host];
+    XCTAssertTrue(self.hostNavigation.navigationBarHidden);
+    [self.service openFromViewController:host style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
+        XCTAssertEqual(error.code, XYBookAudioBusy);
+    }];
+    [self openFixturePage:self.childURL];
+    [self pageAtDepth:3];
+    UIViewController *otherHostPage = [UIViewController new];
+    [self.hostNavigation pushViewController:otherHostPage animated:NO];
+    [self.service shutdown];
+    [self waitUntil:^BOOL {
+        return self.hostNavigation.viewControllers.count == 2;
+    }];
+    XCTAssertEqualObjects(self.hostNavigation.viewControllers, (@[ host, otherHostPage ]));
+    XCTAssertEqual(self.hostNavigation.delegate, self);
+    XCTAssertTrue(self.hostNavigation.navigationBarHidden);
 }
 
 @end

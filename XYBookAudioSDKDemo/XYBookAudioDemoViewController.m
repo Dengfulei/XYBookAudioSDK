@@ -38,8 +38,16 @@
 
 /// 每个入口只传入当前控制器；接入单例负责初始化并复用已有会话。
 - (void)openListening {
+    [self openListeningWithStyle:XYBookAudioOpenStylePresent];
+}
+
+- (void)pushListening {
+    [self openListeningWithStyle:XYBookAudioOpenStylePush];
+}
+
+- (void)openListeningWithStyle:(XYBookAudioOpenStyle)style {
     __weak typeof(self) weakSelf = self;
-    [AppBookAudioService.sharedInstance openFromViewController:self completion:^(NSError *error) {
+    [AppBookAudioService.sharedInstance openFromViewController:self style:style completion:^(NSError *error) {
         if (error) {
             weakSelf.status.text = error.localizedDescription;
         }
@@ -72,10 +80,10 @@
     UIStackView *stack = [[UIStackView alloc] initWithArrangedSubviews:@[ self.status ]];
     stack.axis = UILayoutConstraintAxisVertical;
     stack.spacing = 20;
-    NSArray *titles = @[ @"打开听书页面", @"退出登录", @"模拟宿主接管音频" ];
+    NSArray *titles = @[ @"全屏打开听书", @"Push 打开听书", @"退出登录", @"模拟宿主接管音频" ];
     NSArray *selectors = @[
-        NSStringFromSelector(@selector(openListening)), NSStringFromSelector(@selector(logout)),
-        NSStringFromSelector(@selector(takeOver))
+        NSStringFromSelector(@selector(openListening)), NSStringFromSelector(@selector(pushListening)),
+        NSStringFromSelector(@selector(logout)), NSStringFromSelector(@selector(takeOver))
     ];
     for (NSUInteger index = 0; index < titles.count; index++) {
         UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];

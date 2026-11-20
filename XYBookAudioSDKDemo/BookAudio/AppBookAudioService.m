@@ -105,6 +105,12 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
 }
 
 - (void)openFromViewController:(UIViewController *)controller completion:(void (^)(NSError *))completion {
+    [self openFromViewController:controller style:XYBookAudioOpenStylePresent completion:completion];
+}
+
+- (void)openFromViewController:(UIViewController *)controller
+                         style:(XYBookAudioOpenStyle)style
+                    completion:(void (^)(NSError *))completion {
     NSParameterAssert(NSThread.isMainThread);
     NSParameterAssert(completion);
     NSError *error = nil;
@@ -112,7 +118,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
         completion(error);
         return;
     }
-    [self.SDK openFromViewController:controller completion:completion];
+    [self.SDK openFromViewController:controller style:style completion:completion];
 }
 
 - (NSDictionary *)getSnapshot {
@@ -209,7 +215,6 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
         UIViewController *destination = returnController;
         UINavigationController *currentNavigation = weakNavigation;
         if (destination && currentNavigation.topViewController == weakLogin &&
-            currentNavigation.presentingViewController &&
             [currentNavigation.viewControllers containsObject:destination]) {
             [currentNavigation popToViewController:destination animated:YES];
         }
