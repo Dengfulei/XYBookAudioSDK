@@ -332,6 +332,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     self.index++;
     self.position = 0;
     [self.engine clear];
+    [self loadArtwork];
     [self play:^(NSDictionary *result, NSError *error) {
         if (error) {
             [self report:error];
@@ -466,33 +467,52 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     self.event = nil;
 }
 
-/// 异步载入展示封面；切队列后的旧结果被丢弃，封面失败只影响展示，不使音频失效。
+/// SNCK 使用当前曲目的封面，只接受仍在使用的下载结果。
 - (void)loadArtwork {
-    [self.artworkTask cancel];
-    self.artwork = nil;
-    if (!self.queue.coverURL) {
+    NSString *coverURL = self.queue.coverURL;
+    NSURL *URL = coverURL ? [NSURL URLWithString:coverURL] : nil;
+    if (self.queue.snckItems) {
+        URL = XYBookAudioSnckURL(self.queue.snckItems[self.index][@"coverUrl"]);
+    }
+    if ([URL isEqual:self.artworkURL] && (self.artwork || self.artworkTask)) {
         return;
     }
-    XYBookAudioQueue *queue = self.queue;
+
+    [self.artworkTask cancel];
+    self.artworkTask = nil;
+    self.artwork = nil;
+    self.artworkURL = URL;
+    if (!URL) {
+        return;
+    }
+
     __weak typeof(self) weakSelf = self;
-    self.artworkTask = [NSURLSession.sharedSession
-          dataTaskWithURL:[NSURL URLWithString:self.queue.coverURL]
-        completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                if (weakSelf.disposed || queue != weakSelf.queue || error.code == NSURLErrorCancelled) {
-                    return;
-                }
-                UIImage *image = data.length <= 5 * 1024 * 1024 ? [UIImage imageWithData:data] : nil;
-                if (image) {
-                    weakSelf.artwork = image;
-                    [weakSelf publish];
-                } else {
-                    [weakSelf report:XYBookAudioError(XYBookAudioSourceNotReady,
-                                                      @"Cover artwork could not be loaded; audio remains available.")];
-                }
-            });
-        }];
-    [self.artworkTask resume];
+    __block __weak NSURLSessionDataTask *weakTask;
+    NSURLSessionDataTask *task = [NSURLSession.sharedSession
+          dataTaskWithURL:URL completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+              dispatch_async(dispatch_get_main_queue(), ^{
+                  XYBookAudioSession *session = weakSelf;
+                  NSURLSessionDataTask *completedTask = weakTask;
+                  if (!completedTask || session.disposed || session.artworkTask != completedTask) {
+                      return;
+                  }
+                  session.artworkTask = nil;
+                  if (error.code == NSURLErrorCancelled) {
+                      return;
+                  }
+                  UIImage *image = data.length <= 5 * 1024 * 1024 ? [UIImage imageWithData:data] : nil;
+                  if (image) {
+                      session.artwork = image;
+                      [session publish];
+                  } else {
+                      [session report:XYBookAudioError(XYBookAudioSourceNotReady,
+                                                       @"Cover artwork could not be loaded; audio remains available.")];
+                  }
+              });
+          }];
+    weakTask = task;
+    self.artworkTask = task;
+    [task resume];
 }
 
 - (void)dealloc {

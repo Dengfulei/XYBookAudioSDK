@@ -21,6 +21,7 @@
 @property (nonatomic, strong) NSTimer *ticker;
 @property (nonatomic, strong) id backgroundObserver;
 @property (nonatomic, strong) UIImage *artwork;
+@property (nonatomic, strong) NSURL *artworkURL;
 @property (nonatomic, strong) NSURLSessionDataTask *artworkTask;
 @property (nonatomic, copy) NSString *checkpointIdentity, *stateOverride, *reason;
 @property (nonatomic, copy) NSString *lastPublishedState;

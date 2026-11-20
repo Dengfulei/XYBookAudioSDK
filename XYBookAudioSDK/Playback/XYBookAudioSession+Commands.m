@@ -424,6 +424,7 @@
     self.index = index;
     self.position = 0;
     self.stateOverride = XYBookAudioValueReady;
+    [self loadArtwork];
     [self play:completion];
 }
 
