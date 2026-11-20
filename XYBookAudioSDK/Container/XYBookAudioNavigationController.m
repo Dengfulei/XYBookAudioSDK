@@ -42,10 +42,13 @@
 }
 
 /// 关闭当前网页：子页返回上一页，唯一根页 dismiss SDK 容器，播放会话继续保留。
-- (NSError *)closeWindowFromPage:(UIViewController *)page {
+- (NSError *)closeWindowFromPage:(UIViewController *)page beforeClose:(dispatch_block_t)beforeClose {
     NSError *error = [self navigationErrorFromPage:page];
     if (error) {
         return error;
+    }
+    if (beforeClose) {
+        beforeClose();
     }
     if (self.viewControllers.count == 1) {
         [self closeAllPages];
@@ -56,7 +59,7 @@
 }
 
 /// 子页复用最初的可信范围；接受导航不代表网页已经加载成功。
-- (NSError *)openWindowWithURL:(NSURL *)URL fromPage:(UIViewController *)page {
+- (NSError *)openWindowWithURL:(NSURL *)URL title:(NSString *)title fromPage:(UIViewController *)page {
     NSError *error = [self navigationErrorFromPage:page];
     if (error) {
         return error;
@@ -64,7 +67,9 @@
     if (![self.configuration allowsURL:URL]) {
         return XYBookAudioError(XYBookAudioUntrustedSource, @"The new window URL is outside the trusted scope.");
     }
-    [self pushViewController:[self pageWithURL:URL] animated:YES];
+    UIViewController *child = [self pageWithURL:URL];
+    child.title = title;
+    [self pushViewController:child animated:YES];
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogPage message:@"New web window opened."];
     return nil;
 }

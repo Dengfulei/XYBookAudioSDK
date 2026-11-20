@@ -8,6 +8,8 @@
 @property (nonatomic, copy) void (^failed)(NSError *error);
 @property (nonatomic, readonly) double positionMs;
 @property (nonatomic, readonly) double durationMs;
+@property (nonatomic, readonly) double bufferedPositionMs;
+@property (nonatomic, readonly) BOOL wantsPlayback;
 @property (nonatomic, readonly) BOOL hasItem;
 @property (nonatomic, copy, readonly) NSString *state;
 

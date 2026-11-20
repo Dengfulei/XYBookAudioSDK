@@ -21,6 +21,9 @@
 - (void)showShareMenu:(NSDictionary *)parameters
             presenter:(UIViewController *)presenter
            completion:(XYBookAudioCompletion)completion;
+- (void)shareSnck:(NSDictionary *)parameters
+        presenter:(UIViewController *)presenter
+       completion:(XYBookAudioCompletion)completion;
 - (void)dispose;
 
 @end

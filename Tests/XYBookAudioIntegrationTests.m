@@ -174,11 +174,11 @@
     XCTAssertEqualObjects([self.SDK getSnapshot], snapshot);
 }
 
-/// 测试 bundle 实现的 xhTestEcho 只属于 H5；原生入口不能把短名称误截取为播放命令。
+/// Ready 只对 H5 提供，不能作为宿主播放命令执行。
 - (void)testNativeCommandsRejectH5OnlyMethodWithoutPlaybackPrefix {
     NSDictionary *snapshot = [self.SDK getSnapshot];
     XCTestExpectation *done = [self expectationWithDescription:@"拒绝没有播放命令实现的 H5 方法"];
-    [self.SDK executeAction:@"xhTestEcho" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
+    [self.SDK executeAction:@"xhSnckReady" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
         XCTAssertNil(result);
         XCTAssertEqualObjects(error.domain, XYBookAudioErrorDomain);
         XCTAssertEqual(error.code, XYBookAudioUnsupported);
@@ -631,11 +631,11 @@
     XCTAssertNotNil(web);
     if ([self waitForFixturePage:web]) {
         XCTestExpectation *bridge = [self expectationWithDescription:@"bridge through aliased entry"];
-        [web callAsyncJavaScript:@"return await call('xhBookAudioGetCapabilities');" arguments:@{} inFrame:nil
+        [web callAsyncJavaScript:@"return await call('xhSnckReady');" arguments:@{} inFrame:nil
                   inContentWorld:WKContentWorld.pageWorld completionHandler:^(NSDictionary *result, NSError *failure) {
                       XCTAssertNil(failure);
-                      XCTAssertNil(result[@"protocolVersion"]);
-                      XCTAssertTrue([result[@"actions"] containsObject:@"xhBookAudioGetSnapshot"]);
+                      XCTAssertEqualObjects(result[@"protocolVersion"], @1);
+                      XCTAssertTrue([result[@"capabilities"] containsObject:@"xhSnckAudioGetState"]);
                       [bridge fulfill];
                   }];
         [self waitForExpectations:@[ bridge ] timeout:4];
@@ -681,24 +681,17 @@
     XCTAssertNotNil(web);
     [self waitForFixturePage:web];
     XCTestExpectation *bridge = [self expectationWithDescription:@"real bridge"];
-    NSString *script = @"const capability=await call('xhBookAudioGetCapabilities');"
-                        "const snapshot=await call('xhBookAudioGetSnapshot');"
-                        "const canUse=await call('xhCanIUse',{name:'xhBookAudioPlay'});"
-                        "const profile=await call('xhGetUserInfo',{goLogin:true,useTicket:false});"
-                        "const share=await call('xhShowShareMenu',{title:'test',link:'https://example.com/book'});"
-                        "await loadQueue(false);await call('xhBookAudioPlay');"
-                        "return {capability,snapshot,canUse,profile,share};";
-    [web callAsyncJavaScript:script arguments:@{} inFrame:nil inContentWorld:WKContentWorld.pageWorld
-           completionHandler:^(NSDictionary *result, NSError *error) {
-               XCTAssertNil(error);
-               XCTAssertNil(result[@"capability"][@"protocolVersion"]);
-               XCTAssertEqualObjects(result[@"snapshot"][@"state"], @"idle");
-               XCTAssertEqualObjects(result[@"canUse"][@"data"], @1);
-               XCTAssertEqualObjects(result[@"profile"][@"info"][@"name"], @"测试用户");
-               XCTAssertEqualObjects(result[@"share"], @{});
-               [bridge fulfill];
-           }];
+    [web callAsyncJavaScript:@"return await call('xhSnckReady');" arguments:@{} inFrame:nil
+              inContentWorld:WKContentWorld.pageWorld completionHandler:^(NSDictionary *result, NSError *error) {
+                  XCTAssertNil(error);
+                  XCTAssertEqualObjects(result[@"protocolVersion"], @1);
+                  XCTAssertEqualObjects(result[@"playback"][@"state"], @"IDLE");
+                  XCTAssertEqualObjects(result[@"userState"][@"guest"], @YES);
+                  [bridge fulfill];
+              }];
     [self waitForExpectations:@[ bridge ] timeout:8];
+    [self command:@"SetQueue" parameters:[self queue:NO] error:nil];
+    [self command:@"Play" parameters:@{} error:nil];
     XCTestExpectation *closed = [self expectationWithDescription:@"closed"];
     [presenter dismissViewControllerAnimated:NO completion:^{
         [closed fulfill];
@@ -713,7 +706,7 @@
         [reopened fulfill];
     }];
     [self waitForExpectations:@[ reopened ] timeout:4];
-    XCTAssertEqualObjects([self.SDK getSnapshot][@"bookId"], @"local-free");
+    XCTAssertEqualObjects([self.SDK getSnapshot][@"bookId"], @"book");
     XCTestExpectation *finallyClosed = [self expectationWithDescription:@"reopened page closed"];
     [presenter dismissViewControllerAnimated:NO completion:^{
         [finallyClosed fulfill];

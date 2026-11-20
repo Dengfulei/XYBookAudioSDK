@@ -7,8 +7,10 @@
 @property (nonatomic, copy, readonly) NSString *title;
 @property (nonatomic, copy, readonly) NSString *coverURL;
 @property (nonatomic, copy, readonly) NSArray<XYBookAudioChapter *> *chapters;
+@property (nonatomic, copy, readonly) NSArray<NSDictionary *> *snckItems;
 
 /// 完整校验成功才返回新队列；失败返回错误，调用方旧队列保持不变。
 + (instancetype)queueWithParameters:(NSDictionary *)parameters error:(NSError **)error;
++ (instancetype)queueWithSnckParameters:(NSDictionary *)parameters error:(NSError **)error;
 
 @end

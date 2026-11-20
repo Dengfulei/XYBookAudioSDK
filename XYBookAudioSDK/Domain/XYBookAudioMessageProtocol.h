@@ -12,6 +12,9 @@ FOUNDATION_EXPORT BOOL XYBookAudioNumber(id value, double minimum, double maximu
 FOUNDATION_EXPORT BOOL XYBookAudioString(id value);
 /// 检查 HTTPS 资源基本格式并拒绝 URL 内用户名／密码；页面来源还需配置层进一步校验。
 FOUNDATION_EXPORT BOOL XYBookAudioHTTPS(id value);
+FOUNDATION_EXPORT NSURL *XYBookAudioSnckURL(id value);
+FOUNDATION_EXPORT NSError *XYBookAudioSnckError(NSInteger code, NSString *message);
+FOUNDATION_EXPORT NSDictionary *XYBookAudioSnckErrorPayload(NSError *error);
 
 // 传输层、会话和系统适配器共享这些协议字段与动作，避免模块各自拼写导致契约漂移。
 FOUNDATION_EXPORT NSString *const XYBookAudioKeyActionName;

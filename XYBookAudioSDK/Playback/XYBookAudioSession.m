@@ -126,6 +126,64 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     return result;
 }
 
+- (NSDictionary *)snckUserState {
+    XYBookAudioIdentity *identity = self.identity;
+    id user = identity.isLoggedIn
+                  ? @{@"id" : identity.userId, @"nickname" : @"", @"avatarUrl" : NSNull.null, @"extensions" : @{}}
+                  : NSNull.null;
+    return @{
+        @"guest" : @(!identity.isLoggedIn),
+        @"initialization" : identity.isLoggedIn ? @"AUTHENTICATED" : @"GUEST",
+        @"user" : user
+    };
+}
+
+- (NSDictionary *)snckPlayback {
+    NSArray *items = self.queue.snckItems ?: @[];
+    BOOL hasQueue = items.count > 0;
+    BOOL preparing = self.acquiring && self.acquisitionGeneration == self.generation;
+    NSString *state = self.stateOverride ?: self.engine.state;
+    NSString *snckState = @"IDLE";
+    if (hasQueue) {
+        if ([state isEqual:XYBookAudioValuePlaying]) {
+            snckState = @"PLAYING";
+        } else if (preparing || [state isEqual:XYBookAudioValueBuffering]) {
+            snckState = @"BUFFERING";
+        } else if ([state isEqual:XYBookAudioValueFailed]) {
+            snckState = @"ERROR";
+        } else if ([state isEqual:XYBookAudioValueCompleted] && self.index == (NSInteger)items.count - 1) {
+            snckState = @"ENDED";
+        } else {
+            snckState = @"PAUSED";
+        }
+    }
+    NSDictionary *timer = hasQueue ? [self.sleepTimer snapshot] : @{};
+    NSDictionary *modes = @{XYBookAudioValueDuration : @"AFTER_DURATION", XYBookAudioValueTrackCount : @"AFTER_ITEMS"};
+    NSString *mode = timer[XYBookAudioKeyMode];
+    NSMutableDictionary *snckTimer = [@{
+        @"mode" : (mode ? modes[mode] : nil) ?: @"OFF",
+        @"remainingCount" : timer[XYBookAudioKeyRemainingCount] ?: @0,
+        @"remainingMs" : @(llround([timer[XYBookAudioKeyRemainingMs] doubleValue]))
+    } mutableCopy];
+    if ([mode isEqual:XYBookAudioValueDuration]) {
+        snckTimer[@"deadlineElapsedMs"] = @(llround(self.sleepTimer.deadline * 1000));
+    }
+    return @{
+        @"stateVersion" : @(self.stateVersion),
+        @"queueVersion" : @(self.queueVersion),
+        @"items" : items,
+        @"index" : @(hasQueue ? self.index : -1),
+        @"item" : hasQueue ? items[self.index] : NSNull.null,
+        @"state" : snckState,
+        @"playing" : @([snckState isEqual:@"PLAYING"]),
+        @"playWhenReady" : @(hasQueue && (self.engine.wantsPlayback || preparing || self.resumeAfterInterruption)),
+        @"positionMs" : @(hasQueue ? llround(self.engine.hasItem ? self.engine.positionMs : self.position) : 0),
+        @"durationMs" : @(hasQueue ? llround(self.engine.durationMs) : 0),
+        @"bufferedPositionMs" : @(hasQueue ? llround(self.engine.bufferedPositionMs) : 0),
+        @"timer" : snckTimer
+    };
+}
+
 /// 剩余时长只用于展示；缺失时长或无访问权限的章节不按零时长估算。
 - (NSDictionary *)timerSnapshot {
     NSMutableDictionary *timer = [[self.sleepTimer snapshot] mutableCopy];
@@ -157,6 +215,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     if (self.disposed) {
         return;
     }
+    self.stateVersion++;
     NSDictionary *snapshot = [self snapshot];
     self.lastPublish = XYBookAudioContinuousTime();
     if (![self.lastPublishedState isEqual:snapshot[XYBookAudioKeyState]]) {
@@ -206,7 +265,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
 
 /// 断点写入最初装载队列时的身份空间，避免切换账号后把旧队列进度写给新用户。
 - (void)save {
-    if (!self.queue) {
+    if (!self.queue || self.queue.snckItems) {
         return;
     }
     if (self.engine.hasItem) {
@@ -296,6 +355,9 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     if ([self.identity.userId isEqual:identity.userId]) {
         return YES;
     }
+    if (self.queue.snckItems && self.identity.isLoggedIn && !identity.isLoggedIn) {
+        [self clearSnckQueue];
+    }
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost
                message:@"Identity changed; previous restricted sources revoked."];
     BOOL paid = self.chapter.requiresLogin;
@@ -341,12 +403,32 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
 
 /// 撤销异步播放代次，保存断点并释放自己的系统媒体占用；不会自动重新抢占音频。
 - (void)yieldPlayback {
+    [self suspendPlayback];
+    self.reason = XYBookAudioValueHostTakeover;
+    [self publish];
+}
+
+- (void)suspendPlayback {
     self.generation++;
     self.resumeAfterInterruption = NO;
     [self.engine pause];
     [self save];
     [self releaseSystemPlayback];
-    self.reason = XYBookAudioValueHostTakeover;
+}
+
+- (void)clearSnckQueue {
+    [self suspendPlayback];
+    [self.engine clear];
+    [self.sleepTimer cancel];
+    if (self.queue.snckItems) {
+        self.queueVersion++;
+    }
+    self.queue = nil;
+    self.index = 0;
+    self.position = 0;
+    self.stateOverride = XYBookAudioValueIdle;
+    self.reason = nil;
+    [self loadArtwork];
     [self publish];
 }
 

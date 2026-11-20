@@ -93,9 +93,6 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     if (self.configuration) {
         return [self configureWithConfiguration:self.configuration error:error];
     }
-    NSArray<NSString *> *arguments = NSProcessInfo.processInfo.arguments;
-    NSUInteger entryIndex = [arguments indexOfObject:@"--listening-entry-url"];
-    BOOL useRemoteEntry = entryIndex != NSNotFound;
     NSURL *entry = [NSURL URLWithString:@"https://cankaoxiaoxi.testnewmedia.xinhuaapp.com/h5/snck/index.html#/?hideTopView=1&vc=1"];
     XYBookAudioConfiguration *configuration =
         [[XYBookAudioConfiguration alloc] initWithHostIdentifier:NSBundle.mainBundle.bundleIdentifier entryURL:entry];
@@ -235,7 +232,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
         CGRectMake(CGRectGetMidX(controller.view.bounds), CGRectGetMidY(controller.view.bounds), 1, 1);
     share.completionWithItemsHandler = ^(UIActivityType activityType, BOOL completed, NSArray *items, NSError *error) {
         XYBookAudioShareResult result = error       ? XYBookAudioShareFailed
-                                        : completed ? XYBookAudioShareAccepted
+                                        : completed ? XYBookAudioShareSucceeded
                                                     : XYBookAudioShareCancelled;
         completion(result, error);
     };

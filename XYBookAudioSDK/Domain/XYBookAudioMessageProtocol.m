@@ -31,6 +31,61 @@ BOOL XYBookAudioHTTPS(id value) {
     return [URL.scheme.lowercaseString isEqualToString:@"https"] && URL.host.length && !URL.user && !URL.password;
 }
 
+NSURL *XYBookAudioSnckURL(id value) {
+    if (!XYBookAudioString(value) || [value length] > 8192 ||
+        [value rangeOfCharacterFromSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].location != NSNotFound) {
+        return nil;
+    }
+    NSURL *URL = [NSURL URLWithString:value];
+    NSString *scheme = URL.scheme.lowercaseString;
+    return ([scheme isEqual:@"https"] || [scheme isEqual:@"http"]) && URL.host.length && !URL.user && !URL.password
+               ? URL
+               : nil;
+}
+
+static NSErrorDomain const XYBookAudioSnckErrorDomain = @"com.xinhuamm.bookaudio.snck";
+
+NSError *XYBookAudioSnckError(NSInteger code, NSString *message) {
+    return [NSError errorWithDomain:XYBookAudioSnckErrorDomain code:code
+                           userInfo:@{NSLocalizedDescriptionKey : message}];
+}
+
+NSDictionary *XYBookAudioSnckErrorPayload(NSError *error) {
+    NSInteger code = -4;
+    if ([error.domain isEqual:XYBookAudioSnckErrorDomain]) {
+        code = error.code;
+    } else if ([error.domain isEqual:NSURLErrorDomain] && error.code == NSURLErrorTimedOut) {
+        code = 4105;
+    } else if ([error.domain isEqual:NSURLErrorDomain] && error.code == NSURLErrorCancelled) {
+        code = 4106;
+    } else if ([error.domain isEqual:XYBookAudioErrorDomain]) {
+        switch (error.code) {
+            case XYBookAudioInvalidArgument:
+            case XYBookAudioInvalidState:
+                code = 4101;
+                break;
+            case XYBookAudioUntrustedSource:
+                code = 4103;
+                break;
+            case XYBookAudioBusy:
+            case XYBookAudioHostFailed:
+                code = 4104;
+                break;
+            case XYBookAudioDisposed:
+                code = 4106;
+                break;
+            case XYBookAudioUnsupported:
+                code = 4107;
+                break;
+            case XYBookAudioPlaybackFailed:
+            case XYBookAudioSourceNotReady:
+                code = 4108;
+                break;
+        }
+    }
+    return @{@"code" : @(code), @"message" : error.localizedDescription};
+}
+
 NSString *const XYBookAudioKeyActionName = @"actionName";
 NSString *const XYBookAudioKeyParameters = @"parameters";
 NSString *const XYBookAudioKeyCallbackActionName = @"callbackActionName";

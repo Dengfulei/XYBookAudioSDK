@@ -1,6 +1,6 @@
 # 宿主接入契约
 
-H5 方法和事件使用参考工程的标准信封及业务成功回调。完整约定见 [H5 交互](H5Protocol.md)。
+H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Protocol.md)。
 
 对外产品为 `XYBookAudioSDK.framework` / `.xcframework`，类入口为 `XYBookAudioSDKManager`。在宿主新增的接入类中实现协议并调用 SDK，无需引入本工程实现源码或改写原有 WebView。
 
@@ -21,9 +21,9 @@ sdk.open(from: presenter) { error in
 }
 ```
 
-同实例同时只能有一个模态听书容器；重复打开或不可用 presenter 返回 BUSY。H5 可用 `xhOpenWindow` 在容器内 push 子网页，用 `xhCloseWindow` 逐层关闭；关闭首页才退出容器。播放器、队列和定时器始终属于 SDK 会话，关页后保留。新开或重开 H5 应先调用 xhBookAudioSubscribe，再调用 xhGetUserInfo 和 xhBookAudioGetSnapshot，避免无意 SetQueue 覆盖状态。
+同实例同时只能有一个模态听书容器；重复打开或不可用 presenter 返回 BUSY。H5 可用 `xhSnckOpenPage` 打开子网页，用 `xhSnckClosePage` 逐层关闭；关闭首页才退出容器。播放器、队列和定时器始终属于 SDK 会话，关页后保留。新开或重开 H5 调用 `xhSnckReady`，从返回的用户和播放快照恢复展示。
 
-网页窗口由 framework 自行管理，宿主不需要新增路由代理或调用原 App 的导航工具。所有窗口沿用初始可信地址范围；子页登录回调传入当前顶层页面，宿主仍通过该页的 `navigationController` push 登录页。`dispose` 会关闭整个窗口栈并释放会话。H5 使用标准 `xh.closeWindow()`、`xh.openWindow({url})`、`xh.goLogin()`，这三个方法均无业务回调。参数和适用范围见 [标准交互](H5Protocol.md)。
+网页窗口由 framework 自行管理，宿主不需要新增路由代理或调用原 App 的导航工具。所有窗口沿用初始可信地址范围；子页登录回调传入当前顶层页面，宿主仍通过该页的 `navigationController` push 登录页。`dispose` 会关闭整个窗口栈并释放会话。新页面的地址与标题参数见 [SNCK v1](H5Protocol.md)。
 
 ## WebView 调试
 
@@ -58,7 +58,7 @@ __weak typeof(self) weakSelf = self;
 }];
 ```
 
-示例首次未配置时按需加载本地 Fixture；正式宿主在统一启动入口或首次打开前配置远程 H5，不要让每个业务页面重复初始化：
+Demo 默认加载少年参考测试页。正式宿主在统一启动入口或首次打开前配置自己的 H5。
 
 ```objc
 NSURL *entry = [NSURL URLWithString:@"https://h5.example.com/book-audio/index.html"];
@@ -97,7 +97,7 @@ if (![AppBookAudioService.sharedInstance configureWithConfiguration:configuratio
 }
 ```
 
-账号模块不导入 SDK，也不发送听书专属事件。接入类监听账号变更后刷新 SDK；H5 已订阅时会收到 `onBookAudioUserIdentityChange`。H5 关闭期间无需保留或补发历史通知，重开时先订阅再主动查询当前身份。示例 H5 已处理身份事件并即时更新身份文字，同时保持已有章节队列和播放意图。
+账号模块不导入 SDK，也不发送听书专属事件。接入类监听账号变更后刷新 SDK；可见且已 Ready 的 H5 会收到 `snckUserChanged`。重开页面从 Ready 快照读取当前身份。示例 H5 已处理身份事件并即时更新身份文字，退出宿主账号时，SNCK 会话清空当前队列。
 
 SDK 对游客身份使用空 userId；账号模块本身使用 nil。这个转换在 `bookAudioUserIdentity` 中完成。SDK 未初始化时，账号通知不会创建播放器；首次初始化读取最新账号。当前登录页使用本地测试账号，并不代表已接入真实认证服务；正式宿主在认证成功后调用自身的身份提交入口，退出失败时不能提前发布游客状态。
 
@@ -154,7 +154,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 | `bookAudioRequestLoginFrom:completion:` | 在给定控制器之上展示已有登录；回调 loggedIn/cancelled/failed。SDK 会重新读取身份。 |
 | `bookAudioShare:from:completion:` | 接收标准分享参数；accepted 表示已选择渠道，cancelled 表示取消，不承诺平台成功。 |
 | `bookAudioUserInfoUsingTicket:completion:` | 已登录时提供原始标准用户资料；useTicket=true 时由宿主刷新票据。缺失实现返回 UNSUPPORTED，不拼造账号字段。 |
-| `bookAudioSystemInfoFromViewController:` | 提供标准系统资料，device_token 沿用宿主既有标识。原版 xh.getUserInfo 内部还会调用此能力。 |
+| `bookAudioSystemInfoFromViewController:` | 提供标准系统资料，device_token 沿用宿主既有标识。供宿主原生调用。 |
 | `bookAudioAcquirePlayback:` | 通过宿主已有接口让出音频控制权并在 10 秒内回调。没有其他播放器时直接 completion(nil)。无法按时完成时，宿主应撤销待处理的交接。 |
 | `bookAudioDidReleasePlayback` | SDK 释放了音频控制权，或宿主已确认让出音频但请求未能启动播放。宿主根据当前音频状态决定后续操作。 |
 
@@ -162,7 +162,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 其他音频业务开始前调用 `yieldPlayback`，完成后再激活自身会话。此调用保留队列与定时器，听书不会自动抢回。`Stop` 清除定时器并保存位置；`Dispose` 还释放页面、观察者和事件订阅，实例不可再用。
 
-五个基础 host 方法必须实现，用户资料和系统资料方法在协议中为 optional；使用标准 xh.getUserInfo 时应一并接入两者。不需要账号或分享时，返回游客身份、登录取消和分享不支持；没有其他播放器时，释放通知可为空实现。所有能力都通过公开协议接入。
+五个基础 host 方法必须实现，用户资料和系统资料方法在协议中为 optional；宿主需要通过 SDK 查询用户资料或系统资料时可提供相应实现。不需要账号或分享时，返回游客身份、登录取消和分享不支持；没有其他播放器时，释放通知可为空实现。所有能力都通过公开协议接入。
 
 同一 App 的播放器共享系统音频会话和锁屏控制。SDK 实例间互斥覆盖宿主交接等待期和系统媒体占用期，期间其他 SDK 实例的播放请求返回 BUSY。SDK 与宿主播放器之间由统一接入层通过宿主已有的停止及释放接口交接，其他业务开始播放前应调用 SDK 的 `yieldPlayback`。待处理的 SDK 播放请求被取消后，已发起的宿主交接会结算到收到回调或超时为止。
 

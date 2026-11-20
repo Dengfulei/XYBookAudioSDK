@@ -39,7 +39,7 @@
     return argument;
 }
 
-/// 传输错误沿用管理类的日志和错误事件，避免在适配层另造一套回执。
+/// 无有效请求标识的传输错误交由管理类记录。
 - (void)rejectMessage:(NSString *)reason {
     if (self.invalidMessageHandler) {
         self.invalidMessageHandler(reason);

@@ -5,6 +5,73 @@
 
 @implementation XYBookAudioQueue
 
++ (instancetype)queueWithSnckParameters:(NSDictionary *)parameters error:(NSError **)error {
+    NSArray *items = parameters[@"items"];
+    if (![items isKindOfClass:NSArray.class] || items.count < 1 || items.count > 200) {
+        if (error) {
+            *error = XYBookAudioError(XYBookAudioInvalidArgument, @"items must contain 1–200 audio items.");
+        }
+        return nil;
+    }
+    NSMutableArray<NSDictionary *> *normalizedItems = [NSMutableArray arrayWithCapacity:items.count];
+    NSMutableArray<XYBookAudioChapter *> *chapters = [NSMutableArray arrayWithCapacity:items.count];
+    NSMutableSet<NSString *> *identifiers = [NSMutableSet setWithCapacity:items.count];
+    for (id value in items) {
+        NSDictionary *item = [value isKindOfClass:NSDictionary.class] ? value : @{};
+        NSString *identifier = item[@"id"];
+        NSString *title = item[@"title"];
+        NSString *url = item[@"url"];
+        NSString *cover = item[@"coverUrl"];
+        NSString *author = item[@"author"];
+        NSString *mimeType = item[@"mimeType"];
+        BOOL validTitle =
+            XYBookAudioString(title) &&
+            [title stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].length;
+        BOOL validCover =
+            !cover || ([cover isKindOfClass:NSString.class] && (!cover.length || XYBookAudioSnckURL(cover)));
+        if (!XYBookAudioString(identifier) || [identifiers containsObject:identifier] || !validTitle ||
+            !XYBookAudioSnckURL(url) || !validCover || (author && ![author isKindOfClass:NSString.class]) ||
+            (mimeType && ![mimeType isKindOfClass:NSString.class])) {
+            if (error) {
+                *error = XYBookAudioError(XYBookAudioInvalidArgument, @"Invalid or duplicate audio item.");
+            }
+            return nil;
+        }
+        [identifiers addObject:identifier];
+        NSMutableDictionary *entry = [@{@"id" : identifier, @"title" : title, @"url" : url} mutableCopy];
+        entry[@"coverUrl"] = cover;
+        entry[@"author"] = author;
+        entry[@"mimeType"] = mimeType;
+        [normalizedItems addObject:[entry copy]];
+        XYBookAudioChapter *chapter = [XYBookAudioChapter new];
+        chapter.chapterId = identifier;
+        chapter.title = title;
+        chapter.audioURL = url;
+        [chapters addObject:chapter];
+    }
+    NSNumber *startIndex = parameters[@"startIndex"] ?: @0;
+    NSNumber *autoPlay = parameters[@"autoPlay"] ?: @NO;
+    BOOL validOptions = XYBookAudioNumber(startIndex, 0, chapters.count - 1, YES) &&
+                        CFGetTypeID((__bridge CFTypeRef)autoPlay) == CFBooleanGetTypeID();
+    NSDictionary *queueParameters = @{@"items" : normalizedItems, @"startIndex" : startIndex, @"autoPlay" : autoPlay};
+    NSData *encodedQueue = validOptions ? [NSJSONSerialization dataWithJSONObject:queueParameters
+                                                                          options:NSJSONWritingWithoutEscapingSlashes
+                                                                            error:nil]
+                                        : nil;
+    if (!encodedQueue || encodedQueue.length > 60 * 1024) {
+        if (error) {
+            *error = XYBookAudioError(XYBookAudioInvalidArgument, @"Invalid startIndex, autoPlay or queue size.");
+        }
+        return nil;
+    }
+    XYBookAudioQueue *queue = [self new];
+    queue->_bookId = @"SNCK";
+    queue->_title = chapters[startIndex.unsignedIntegerValue].title;
+    queue->_chapters = [chapters copy];
+    queue->_snckItems = [normalizedItems copy];
+    return queue;
+}
+
 + (BOOL)validChapter:(id)value {
     if (![value isKindOfClass:NSDictionary.class]) {
         return NO;

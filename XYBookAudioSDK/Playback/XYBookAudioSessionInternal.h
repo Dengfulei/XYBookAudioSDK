@@ -26,7 +26,8 @@
 @property (nonatomic, copy) NSString *lastPublishedState;
 @property (nonatomic) NSInteger index;
 @property (nonatomic) double position, rate, lastSave, lastPublish;
-@property (nonatomic) NSUInteger generation;
+@property (nonatomic) NSUInteger generation, acquisitionGeneration;
+@property (nonatomic) NSUInteger stateVersion, queueVersion;
 @property (nonatomic) BOOL disposed, acquiring, resumeAfterInterruption;
 - (void)publish;
 - (void)report:(NSError *)error;
@@ -37,6 +38,8 @@
 - (BOOL)expireTimerReleasingSystemPlayback:(BOOL)releasePlayback;
 - (void)loadArtwork;
 - (void)releaseSystemPlayback;
+- (void)suspendPlayback;
+- (void)clearSnckQueue;
 
 @end
 

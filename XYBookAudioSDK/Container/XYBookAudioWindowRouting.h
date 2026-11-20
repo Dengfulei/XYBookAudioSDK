@@ -4,8 +4,8 @@
 @protocol XYBookAudioWindowRouting <NSObject>
 
 /// 打开新窗口；导航接受返回 nil，地址不可信或来源页面不可操作时返回错误。
-- (NSError *)openWindowWithURL:(NSURL *)URL fromPage:(UIViewController *)page;
+- (NSError *)openWindowWithURL:(NSURL *)URL title:(NSString *)title fromPage:(UIViewController *)page;
 /// 关闭当前窗口：子页出栈，根页关闭整个 SDK 容器；不停止播放。
-- (NSError *)closeWindowFromPage:(UIViewController *)page;
+- (NSError *)closeWindowFromPage:(UIViewController *)page beforeClose:(dispatch_block_t)beforeClose;
 
 @end

@@ -25,11 +25,18 @@
 
 /// 验证全部参数后才替换定时；非法新配置不会取消已生效的定时。
 - (BOOL)configure:(NSDictionary *)parameters hasCurrentChapter:(BOOL)hasCurrent error:(NSError **)error {
+    return [self configure:parameters hasCurrentChapter:hasCurrent maximumDurationMs:INT_MAX error:error];
+}
+
+- (BOOL)configure:(NSDictionary *)parameters
+    hasCurrentChapter:(BOOL)hasCurrent
+    maximumDurationMs:(double)maximumDuration
+                error:(NSError **)error {
     NSString *mode = parameters[XYBookAudioKeyMode];
     BOOL countMode = [mode isKindOfClass:NSString.class] && [mode isEqualToString:XYBookAudioValueTrackCount];
     BOOL durationMode = [mode isKindOfClass:NSString.class] && [mode isEqualToString:XYBookAudioValueDuration];
     BOOL valid = (countMode && XYBookAudioNumber(parameters[XYBookAudioKeyCount], 1, INT_MAX, YES)) ||
-                 (durationMode && XYBookAudioNumber(parameters[XYBookAudioKeyDurationMs], 1, INT_MAX, YES));
+                 (durationMode && XYBookAudioNumber(parameters[XYBookAudioKeyDurationMs], 1, maximumDuration, YES));
     if (!valid || (countMode && !hasCurrent)) {
         if (error) {
             *error = XYBookAudioError(valid ? XYBookAudioInvalidState : XYBookAudioInvalidArgument,

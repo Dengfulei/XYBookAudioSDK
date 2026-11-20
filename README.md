@@ -9,9 +9,7 @@ pod install --no-repo-update
 open XYBookAudioSDK.xcworkspace
 ```
 
-在 Xcode 选择 `XYBookAudioSDKDemo` scheme 和 iPhone 模拟器。运行后点击「打开听书页面」，选「载入免费书」再播放。本地页面包含三段合成音频，并提供定时、模拟登录和系统分享入口。SDK 和 Demo 都从源码构建，可直接在桥接、会话或宿主接入层下断点。给 Demo 添加启动参数 `--open-listening` 可在启动时直接打开听书页。
-
-联调现有 H5 时，可给 Demo 添加启动参数 `--listening-entry-url` 和实际 HTTPS 地址。需要 Safari 网页检查时，另加 `--listening-web-inspector`。正式宿主在首次打开前通过 `AppBookAudioService` 的接入方式配置入口、可信域名和路径。H5 的调用方法、参数、回执和事件沿用参考工程。参见 [宿主接入](Docs/HostIntegration.md) 和 [H5 协议](Docs/H5Protocol.md)。真机运行 Demo 时在 Xcode 选择自己的开发团队。
+在 Xcode 选择 `XYBookAudioSDKDemo` scheme 和 iPhone 模拟器。点击「打开听书页面」进入少年参考测试页。添加启动参数 `--open-listening` 可在启动时直接进入听书页。宿主通过 `AppBookAudioService` 配置入口、可信域名和路径。真机运行 Demo 时在 Xcode 选择自己的开发团队。接入方法见 [宿主接入](Docs/HostIntegration.md) 和 [SNCK v1](Docs/H5Protocol.md)。
 
 运行全部 XCTest 和格式校验。将下方模拟器名称替换为 Xcode 中可用的设备名称。
 

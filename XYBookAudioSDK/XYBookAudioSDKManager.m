@@ -18,6 +18,7 @@
 @property (nonatomic, strong) XYBookAudioNavigationController *navigation;
 @property (nonatomic, strong) NSMutableDictionary<NSUUID *, XYBookAudioEventHandler> *subscriptions;
 @property (nonatomic) BOOL disposed;
+@property (nonatomic) NSUInteger snckEventVersion;
 
 @end
 
@@ -104,12 +105,30 @@
     };
 }
 
-/// 原生入口按已有宿主能力和播放命令分发；H5 同名方法的动态调用只由 Bridge 负责。
+/// 原生调用使用宿主能力与播放命令，H5 入口由 Bridge 独立处理。
 - (void)executeAction:(NSString *)action
            parameters:(NSDictionary *)parameters
            completion:(XYBookAudioCompletion)completion {
     NSParameterAssert(NSThread.isMainThread);
-    BOOL supported = [XYBookAudioWebBridge supportsAction:action];
+    NSString *command = XYBookAudioString(action) && [action hasPrefix:XYBookAudioPlaybackActionPrefix]
+                            ? [action substringFromIndex:XYBookAudioPlaybackActionPrefix.length]
+                            : nil;
+    BOOL pageAction = XYBookAudioString(action) && [@[
+                          XYBookAudioActionOpenWindow, XYBookAudioActionCloseWindow, XYBookAudioActionGoLogin,
+                          XYBookAudioActionCanIUse
+                      ] containsObject:action];
+    BOOL hostAction = XYBookAudioString(action) &&
+                      [@[ XYBookAudioActionGetSystemInfo, XYBookAudioActionGetUserInfo, XYBookAudioActionShowShareMenu ]
+                          containsObject:action];
+    BOOL playbackAction =
+        command && [@[
+            XYBookAudioCommandSetQueue, XYBookAudioCommandPlay, XYBookAudioCommandPause, XYBookAudioCommandStop,
+            XYBookAudioCommandSeekTo, XYBookAudioCommandPrevious, XYBookAudioCommandNext,
+            XYBookAudioCommandSelectChapter, XYBookAudioCommandSetRate, XYBookAudioCommandSetSleepTimer,
+            XYBookAudioCommandCancelSleepTimer, XYBookAudioCommandGetCapabilities, XYBookAudioCommandGetSnapshot,
+            XYBookAudioCommandSubscribe, XYBookAudioCommandUnsubscribe
+        ] containsObject:command];
+    BOOL supported = pageAction || hostAction || playbackAction;
     completion = [self loggedCompletionForOperation:supported ? action : @"Command" completion:completion];
     if (self.disposed) {
         completion(nil, XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
@@ -128,10 +147,8 @@
     }
     [self.logger write:XYBookAudioLogLevelDebug component:XYBookAudioLogSDK
                message:[action stringByAppendingString:@" received."]];
-    // 页面交互要求来源网页上下文，不能进入听书前缀解析或由宿主 executeAction 代发。
-    if ([action isEqual:XYBookAudioActionOpenWindow] || [action isEqual:XYBookAudioActionCloseWindow] ||
-        [action isEqual:XYBookAudioActionGoLogin] || [action isEqual:XYBookAudioActionCanIUse]) {
-        completion(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"Page actions must originate from an H5 page."));
+    if (pageAction) {
+        completion(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"This is not a native command."));
         return;
     }
     UIViewController *presenter = self.navigation.topViewController;
@@ -147,13 +164,6 @@
         [self.hostActions showShareMenu:parameters presenter:presenter completion:completion];
         return;
     }
-    // 新增通用 H5 方法不一定是播放命令，必须先确认前缀，不能按固定长度截取任意方法名。
-    if (![action hasPrefix:XYBookAudioPlaybackActionPrefix]) {
-        completion(nil,
-                   XYBookAudioError(XYBookAudioUnsupported, @"This H5 action has no native command implementation."));
-        return;
-    }
-    NSString *command = [action substringFromIndex:[XYBookAudioPlaybackActionPrefix length]];
     if ([command isEqual:XYBookAudioCommandGetCapabilities]) {
         completion([self getCapabilities], nil);
         return;
@@ -196,6 +206,30 @@
 - (NSDictionary *)getSnapshot {
     NSParameterAssert(NSThread.isMainThread);
     return [self.session snapshot];
+}
+
+- (NSDictionary *)snckPlayback {
+    return [self.session snckPlayback];
+}
+
+- (NSDictionary *)snckUserState {
+    return [self.session snckUserState];
+}
+
+- (NSUInteger)nextSnckEventVersion {
+    return ++self.snckEventVersion;
+}
+
+- (void)executeSnckAudio:(NSString *)command
+              parameters:(NSDictionary *)parameters
+              completion:(XYBookAudioCompletion)completion {
+    [self.session executeSnckAudio:command parameters:parameters completion:completion];
+}
+
+- (void)shareSnck:(NSDictionary *)parameters
+         fromPage:(UIViewController *)page
+       completion:(XYBookAudioCompletion)completion {
+    [self.hostActions shareSnck:parameters presenter:page completion:completion];
 }
 
 - (NSUUID *)subscribe:(XYBookAudioEventHandler)handler {

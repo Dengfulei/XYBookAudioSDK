@@ -36,7 +36,6 @@
 		8B8CB14B4F5517E8050B8E23 /* XYBookAudioHostServiceTests.m in Sources */ = {isa = PBXBuildFile; fileRef = ACA977D915507205CDC749F8 /* XYBookAudioHostServiceTests.m */; };
 		8F298B127E19F373032BE0A4 /* XYBookAudioSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		969AE909842114300A46BB41 /* Fixture in Resources */ = {isa = PBXBuildFile; fileRef = 19902312D9759C2A288A0FE9 /* Fixture */; };
-		A2150B6BDCF2BD962BC653EF /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = B18C26FE9D8C4608A3423063 /* Fixtures */; };
 		C34653081F0707C03C09A850 /* Pods_XYBookAudioSDKTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E106DCE174D4B5270AF9FB5 /* Pods_XYBookAudioSDKTests.framework */; };
 		D4FC3F6113CAA23F39848C27 /* XYBookAudioSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; };
 		DBA8D87478968FCE61398941 /* XYBookAudioWindowTests.m in Sources */ = {isa = PBXBuildFile; fileRef = BCED3A822A29AC7A5EF45517 /* XYBookAudioWindowTests.m */; };
@@ -127,7 +126,6 @@
 		A39E986481E05BFD42D0E9C6 /* Pods-XYBookAudioSDKDemo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDKDemo.release.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDKDemo/Pods-XYBookAudioSDKDemo.release.xcconfig"; sourceTree = "<group>"; };
 		AB44F10E3D715BBAF7BD0413 /* Pods-commonPods-XYBookAudioSDK.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDK.debug.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDK/Pods-commonPods-XYBookAudioSDK.debug.xcconfig"; sourceTree = "<group>"; };
 		ACA977D915507205CDC749F8 /* XYBookAudioHostServiceTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioHostServiceTests.m; sourceTree = "<group>"; };
-		B18C26FE9D8C4608A3423063 /* Fixtures */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Fixtures; sourceTree = "<group>"; };
 		BCED3A822A29AC7A5EF45517 /* XYBookAudioWindowTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioWindowTests.m; sourceTree = "<group>"; };
 		BF520751A81DD87A5DF2F4F1 /* Pods-XYBookAudioSDK.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDK.release.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDK/Pods-XYBookAudioSDK.release.xcconfig"; sourceTree = "<group>"; };
 		BFE1BD5332566F16813CB7AB /* XYBookAudioLayoutTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioLayoutTests.m; sourceTree = "<group>"; };
@@ -274,7 +272,6 @@
 				ACA977D915507205CDC749F8 /* XYBookAudioHostServiceTests.m */,
 				B7763E261F42CCC4F13FABA8 /* HostIntegrationSources */,
 				BCED3A822A29AC7A5EF45517 /* XYBookAudioWindowTests.m */,
-				B18C26FE9D8C4608A3423063 /* Fixtures */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -491,7 +488,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2C7E2507B6BBAB87524D2746 /* Fixture in Resources */,
-				A2150B6BDCF2BD962BC653EF /* Fixtures in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -43,7 +43,7 @@
 /// 创建页面级 Bridge 和 WebView；注入脚本在文档开始前安装，实际播放仍由原生会话承担。
 - (void)viewDidLoad {
     [super viewDidLoad];
-    self.title = @"听书";
+    self.title = self.title ?: @"听书";
     self.view.backgroundColor = UIColor.systemBackgroundColor;
     self.navigationItem.leftBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:@"返回"
                                                                              style:UIBarButtonItemStylePlain
@@ -151,6 +151,11 @@
     }];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+    [super viewDidAppear:animated];
+    [self.webBridge pageDidAppear];
+}
+
 /// 优先回退 H5 历史；没有历史时关闭页面，播放会话继续保留。
 - (void)goBack {
     if (self.webView.canGoBack) {
@@ -162,7 +167,7 @@
 
 /// 原生关闭按钮与 H5 共用逐层关闭规则，避免子页关闭时误 dismiss 整个听书容器。
 - (void)closePage {
-    NSError *error = [self.windowRouter closeWindowFromPage:self];
+    NSError *error = [self.windowRouter closeWindowFromPage:self beforeClose:nil];
     if (error) {
         [self.logger error:error component:XYBookAudioLogPage operation:XYBookAudioActionCloseWindow];
     }

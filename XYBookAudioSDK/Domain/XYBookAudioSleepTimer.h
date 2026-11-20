@@ -4,10 +4,15 @@
 @interface XYBookAudioSleepTimer : NSObject
 
 @property (nonatomic, copy, readonly) NSString *mode;
+@property (nonatomic, readonly) double deadline;
 - (instancetype)initWithClock:(NSTimeInterval (^)(void))clock;
 
 /// 非法替换不改变当前定时；仅在全部参数有效时提交新计时状态。
 - (BOOL)configure:(NSDictionary *)parameters hasCurrentChapter:(BOOL)hasCurrent error:(NSError **)error;
+- (BOOL)configure:(NSDictionary *)parameters
+    hasCurrentChapter:(BOOL)hasCurrent
+    maximumDurationMs:(double)maximumDuration
+                error:(NSError **)error;
 - (void)cancel;
 
 /// 时长到期时仅返回一次 YES；不依赖周期进度回调是否准时触发。

@@ -12,7 +12,8 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
     XYBookAudioShareAccepted,
     XYBookAudioShareUnsupported,
     XYBookAudioShareFailed,
-    XYBookAudioShareCancelled
+    XYBookAudioShareCancelled,
+    XYBookAudioShareSucceeded
 };
 
 @protocol XYBookAudioHost <NSObject>
@@ -24,7 +25,7 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller
                        completion:(void (^)(XYBookAudioLoginResult result, NSError *_Nullable error))completion;
 
-/// 接收标准分享参数；accepted 在用户选择分享渠道后回调，cancelled 表示取消，不承诺平台分享成功。
+/// 接收标准分享参数；accepted 表示已调起渠道，succeeded 表示宿主确认实际分享成功。
 - (void)bookAudioShare:(NSDictionary<NSString *, id> *)request
                   from:(UIViewController *)controller
             completion:(void (^)(XYBookAudioShareResult result, NSError *_Nullable error))completion;

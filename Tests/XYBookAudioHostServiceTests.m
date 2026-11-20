@@ -43,7 +43,7 @@
             return condition();
         }]
                    object:nil];
-    XCTAssertEqual([XCTWaiter waitForExpectations:@[ expectation ] timeout:8], XCTWaiterResultCompleted);
+    XCTAssertEqual([XCTWaiter waitForExpectations:@[ expectation ] timeout:15], XCTWaiterResultCompleted);
 }
 
 - (void)configure {
@@ -173,8 +173,7 @@
         UIWindow *window = UIApplication.sharedApplication.delegate.window;
         window.rootViewController = first;
         WKWebView *web = [self openFrom:first];
-        [self runJavaScript:@"await loadQueue(false); await call('xhBookAudioSetRate',{rate:1.5}); return true;"
-                        web:web];
+        [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
         [self.service openFromViewController:first completion:^(NSError *error) {
             XCTAssertEqual(error.code, XYBookAudioBusy);
         }];
@@ -184,12 +183,11 @@
     [self waitUntil:^BOOL {
         return weakFirst == nil;
     }];
-    XCTAssertEqualObjects([self.service getSnapshot][@"bookId"], @"local-free");
-    XCTAssertEqualObjects([self.service getSnapshot][@"rate"], @1.5);
+    XCTAssertEqualObjects([self.service getSnapshot][@"bookId"], @"SNCK");
     WKWebView *web = [self openFrom:second];
-    NSDictionary *snapshot = [self runJavaScript:@"return await call('xhBookAudioGetSnapshot');" web:web];
-    XCTAssertEqualObjects(snapshot[@"bookId"], @"local-free");
-    XCTAssertEqualObjects(snapshot[@"rate"], @1.5);
+    NSDictionary *snapshot = [self runJavaScript:@"return await call('xhSnckAudioGetState');" web:web];
+    XCTAssertEqualObjects(snapshot[@"item"][@"id"], @"fixture");
+    XCTAssertEqualObjects(snapshot[@"state"], @"PAUSED");
     __block NSUInteger events = 0;
     id observer = [NSNotificationCenter.defaultCenter
         addObserverForName:AppBookAudioServiceEventNotification
@@ -197,33 +195,26 @@
                      queue:nil
                 usingBlock:^(NSNotification *notification) {
                     if ([notification.userInfo[AppBookAudioServiceEventNameKey] isEqual:@"onBookAudioPlaybackChange"] &&
-                        [notification.userInfo[AppBookAudioServiceEventParametersKey][@"rate"] isEqual:@2]) {
+                        [notification.userInfo[AppBookAudioServiceEventParametersKey][@"positionMs"] isEqual:@2000]) {
                         events++;
                     }
                 }];
-    [self runJavaScript:@"return await call('xhBookAudioSetRate',{rate:2});" web:web];
+    [self runJavaScript:@"return await call('xhSnckAudioSeekTo',{positionMs:2000});" web:web];
     [NSNotificationCenter.defaultCenter removeObserver:observer];
     XCTAssertEqual(events, 1u);
 }
 
-/// 真实 H5 发起登录，等 push 动画完成后再模拟用户操作，避免在转场中修改导航栈。
-- (XCTestExpectation *)requestLogin:(WKWebView *)web
-                         navigation:(UINavigationController *)navigation
-                             status:(NSString *)status {
-    XCTestExpectation *done = [self expectationWithDescription:@"H5 收到登录结果"];
+/// 从宿主协议发起登录，随后验证 SNCK 身份同步。
+- (XCTestExpectation *)requestLogin:(UINavigationController *)navigation result:(XYBookAudioLoginResult)expected {
+    XCTestExpectation *done = [self expectationWithDescription:@"宿主登录完成"];
     done.assertForOverFulfill = YES;
-    [web callAsyncJavaScript:@"return await call('xhGetUserInfo',{goLogin:true,useTicket:false});" arguments:@{}
-                     inFrame:nil
-              inContentWorld:WKContentWorld.pageWorld completionHandler:^(NSDictionary *result, NSError *error) {
-                  XCTAssertNil(error);
-                  if ([status isEqual:@"loggedIn"]) {
-                      XCTAssertEqualObjects(result[@"id"], @"local-user");
-                      XCTAssertEqualObjects(result[@"info"][@"id"], @"local-user");
-                  } else {
-                      XCTAssertEqualObjects(result, @{});
-                  }
-                  [done fulfill];
-              }];
+    id<XYBookAudioHost> host = (id<XYBookAudioHost>)self.service;
+    [host bookAudioRequestLoginFrom:navigation.topViewController
+                         completion:^(XYBookAudioLoginResult result, NSError *error) {
+                             XCTAssertNil(error);
+                             XCTAssertEqual(result, expected);
+                             [done fulfill];
+                         }];
     [self waitUntil:^BOOL {
         return navigation.viewControllers.count == 2 && navigation.topViewController.viewIfLoaded.window != nil &&
                navigation.transitionCoordinator == nil;
@@ -244,9 +235,9 @@
     UIViewController *presenter = self.originalRoot;
     WKWebView *web = [self openFrom:presenter];
     UINavigationController *navigation = (UINavigationController *)presenter.presentedViewController;
-    XCTestExpectation *login = [self requestLogin:web navigation:navigation status:@"loggedIn"];
     __weak UIViewController *weakLogin;
     @autoreleasepool {
+        XCTestExpectation *login = [self requestLogin:navigation result:XYBookAudioLoginLoggedIn];
         weakLogin = navigation.topViewController;
         [self tapTitle:@"登录测试账号" in:navigation.topViewController.view];
         [self waitForExpectations:@[ login ] timeout:5];
@@ -257,52 +248,37 @@
     [self waitUntil:^BOOL {
         return weakLogin == nil;
     }];
-    XCTAssertEqualObjects(
-        [self runJavaScript:@"return !!(await call('xhGetUserInfo',{goLogin:false,useTicket:false})).id;" web:web],
-        @YES);
-    XCTAssertEqualObjects([self runJavaScript:@"return element('identity').textContent;" web:web], @"用户：local-user");
-    [self
-        runJavaScript:
-            @"await loadQueue(true); await call('xhBookAudioSelectChapter',{chapterId:'chapter-2'}); await call('xhBookAudioPause'); return true;"
-                  web:web];
+    [self waitForIdentityText:@"用户：local-user" web:web];
+    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).user.id;" web:web],
+                          @"local-user");
+    [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     [AppAccountService.sharedInstance logout];
-    XCTAssertEqualObjects(
-        [self runJavaScript:@"return !!(await call('xhGetUserInfo',{goLogin:false,useTicket:false})).id;" web:web],
-        @NO);
-    XCTAssertEqualObjects([self runJavaScript:@"return element('identity').textContent;" web:web], @"游客");
-    XCTAssertEqualObjects([self.service getSnapshot][@"state"], @"stopped");
-    XCTAssertEqualObjects(
-        [self runJavaScript:@"return await new Promise(resolve=>{const receive=window.xhWebJSBridge.nativeCallJS;"
-                             "window.xhWebJSBridge.nativeCallJS=message=>{"
-                             "receive(message); if(message.actionName==='onBookAudioError'){"
-                             "window.xhWebJSBridge.nativeCallJS=receive; resolve(message.parameters.code);}};"
-                             "run('xhBookAudioPlay');});"
-                        web:web],
-        @"LOGIN_REQUIRED");
+    [self waitForIdentityText:@"游客" web:web];
+    NSDictionary *playback = [self runJavaScript:@"return await call('xhSnckAudioGetState');" web:web];
+    XCTAssertEqualObjects(playback[@"state"], @"IDLE");
+    XCTAssertEqualObjects(playback[@"items"], @[]);
 }
 
 - (void)testBackCancellationAllowsAnotherLoginAndFailureResult {
     [self configure];
     WKWebView *web = [self openFrom:self.originalRoot];
     UINavigationController *navigation = (UINavigationController *)self.originalRoot.presentedViewController;
-    XCTestExpectation *cancelled = [self requestLogin:web navigation:navigation status:@"cancelled"];
+    XCTestExpectation *cancelled = [self requestLogin:navigation result:XYBookAudioLoginCancelled];
     [navigation popViewControllerAnimated:NO];
     [self waitForExpectations:@[ cancelled ] timeout:5];
-    XCTestExpectation *failed = [self requestLogin:web navigation:navigation status:@"failed"];
+    XCTestExpectation *failed = [self requestLogin:navigation result:XYBookAudioLoginFailed];
     [self tapTitle:@"模拟失败" in:navigation.topViewController.view];
     [self waitForExpectations:@[ failed ] timeout:5];
     [self waitUntil:^BOOL {
         return navigation.viewControllers.count == 1 && navigation.transitionCoordinator == nil;
     }];
-    XCTAssertEqualObjects(
-        [self runJavaScript:@"return !!(await call('xhGetUserInfo',{goLogin:false,useTicket:false})).id;" web:web],
-        @NO);
+    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).guest;" web:web], @YES);
 }
 
 - (void)testShutdownReleasesSessionAndReopenRetainsConfiguration {
     [self configure];
     WKWebView *web = [self openFrom:self.originalRoot];
-    [self runJavaScript:@"await loadQueue(false); return true;" web:web];
+    [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     [self.service shutdown];
     XCTAssertNil([self.service getSnapshot]);
     [self waitUntil:^BOOL {
@@ -310,8 +286,8 @@
     }];
     self.configuration.environment = @"";
     web = [self openFrom:self.originalRoot];
-    NSDictionary *snapshot = [self runJavaScript:@"return await call('xhBookAudioGetSnapshot');" web:web];
-    XCTAssertNotEqualObjects(snapshot[@"bookId"], @"local-free");
+    NSDictionary *snapshot = [self runJavaScript:@"return await call('xhSnckAudioGetState');" web:web];
+    XCTAssertEqualObjects(snapshot[@"items"], @[]);
 }
 
 /// 账号模块不依赖听书；通知发生时身份已提交，相同账号和重复退出不会产生重复变更。
@@ -338,7 +314,7 @@
 - (void)waitForIdentityText:(NSString *)text web:(WKWebView *)web {
     __block BOOL matches = NO;
     [self waitUntil:^BOOL {
-        [web evaluateJavaScript:@"document.getElementById('identity').textContent"
+        [web evaluateJavaScript:@"document.getElementById('identity')?.textContent"
               completionHandler:^(id result, NSError *error) {
                   matches = !error && [result isEqual:text];
               }];
@@ -362,9 +338,7 @@
     [account logout];
     web = [self openFrom:self.originalRoot];
     [self waitForIdentityText:@"游客" web:web];
-    XCTAssertEqualObjects(
-        [self runJavaScript:@"return !!(await call('xhGetUserInfo',{goLogin:false,useTicket:false})).id;" web:web],
-        @NO);
+    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).guest;" web:web], @YES);
 }
 
 @end

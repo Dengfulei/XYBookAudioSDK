@@ -10,6 +10,8 @@
                                  host:(id<XYBookAudioHost>)host
                                logger:(XYBookAudioLogger *)logger;
 - (NSDictionary *)snapshot;
+- (NSDictionary *)snckPlayback;
+- (NSDictionary *)snckUserState;
 
 /// 宿主身份读取失败时先暂停并释放音频，再返回 NO；不能沿用缓存身份继续播放。
 - (BOOL)refreshIdentity;
@@ -22,5 +24,8 @@
 @interface XYBookAudioSession (Commands)
 
 - (void)execute:(NSString *)command parameters:(NSDictionary *)parameters completion:(XYBookAudioCompletion)completion;
+- (void)executeSnckAudio:(NSString *)command
+              parameters:(NSDictionary *)parameters
+              completion:(XYBookAudioCompletion)completion;
 
 @end

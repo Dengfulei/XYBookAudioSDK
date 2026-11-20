@@ -4,9 +4,18 @@
 NS_ASSUME_NONNULL_BEGIN
 FOUNDATION_EXPORT NSErrorDomain const XYBookAudioErrorDomain;
 typedef NS_ERROR_ENUM(XYBookAudioErrorDomain, XYBookAudioErrorCode){
-    XYBookAudioInvalidArgument = 1, XYBookAudioInvalidState, XYBookAudioBusy,           XYBookAudioLoginRequired,
-    XYBookAudioSourceNotReady,      XYBookAudioUnsupported,  XYBookAudioPlaybackFailed, XYBookAudioHostFailed,
-    XYBookAudioUntrustedSource,     XYBookAudioDisposed,     XYBookAudioStorageFailed};
+    XYBookAudioInvalidArgument = 1,
+    XYBookAudioInvalidState,
+    XYBookAudioBusy,
+    XYBookAudioLoginRequired,
+    XYBookAudioSourceNotReady,
+    XYBookAudioUnsupported,
+    XYBookAudioPlaybackFailed,
+    XYBookAudioHostFailed,
+    XYBookAudioUntrustedSource,
+    XYBookAudioDisposed,
+    XYBookAudioStorageFailed
+};
 FOUNDATION_EXPORT NSError *XYBookAudioError(XYBookAudioErrorCode code, NSString *message);
 FOUNDATION_EXPORT NSString *XYBookAudioErrorName(NSError *error);
 

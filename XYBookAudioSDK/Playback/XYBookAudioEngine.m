@@ -43,6 +43,18 @@ static void *XYBookAudioItemContext = &XYBookAudioItemContext;
     return isfinite(value) && value > 0 ? value : 0;
 }
 
+- (double)bufferedPositionMs {
+    double position = self.positionMs;
+    for (NSValue *value in self.item.loadedTimeRanges) {
+        CMTimeRange range = value.CMTimeRangeValue;
+        double end = CMTimeGetSeconds(CMTimeRangeGetEnd(range)) * 1000;
+        if (isfinite(end) && CMTimeGetSeconds(range.start) * 1000 <= position && position <= end) {
+            return end;
+        }
+    }
+    return 0;
+}
+
 - (BOOL)hasItem {
     return self.item != nil;
 }
