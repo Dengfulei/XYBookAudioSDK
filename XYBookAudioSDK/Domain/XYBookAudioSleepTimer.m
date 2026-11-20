@@ -1,11 +1,11 @@
 // 只持有定时状态；按时间到期或自然完成次数结算，命中后立即关闭，避免重复触发。
 #import "XYBookAudioSleepTimer.h"
-#import "XYBookAudioMessageProtocol.h"
 
 @interface XYBookAudioSleepTimer ()
 
 @property (nonatomic, copy) NSTimeInterval (^clock)(void);
 @property (nonatomic, copy, readwrite) NSString *mode;
+@property (nonatomic, readwrite) XYBookAudioTimerChange lastChange;
 @property (nonatomic) double deadline, durationMs;
 @property (nonatomic) NSInteger targetCount, remainingCount;
 @property (nonatomic, strong) NSMutableSet<NSUUID *> *completed;
@@ -54,9 +54,18 @@
     return YES;
 }
 
-/// 清空截止时间和已完成实例集合；不改变播放器状态。
 - (void)cancel {
+    [self resetWithChange:XYBookAudioTimerChangeSet];
+}
+
+- (void)queueDidEnd {
+    [self resetWithChange:XYBookAudioTimerChangeQueueEnded];
+}
+
+/// 定时状态与变更原因一起更新，供 H5 在定时快照变化时读取。
+- (void)resetWithChange:(XYBookAudioTimerChange)change {
     self.mode = XYBookAudioValueOff;
+    self.lastChange = change;
     self.completed = [NSMutableSet set];
     self.remainingCount = 0;
     self.targetCount = 0;
@@ -69,7 +78,7 @@
     if (![self.mode isEqualToString:XYBookAudioValueDuration] || self.clock() < self.deadline) {
         return NO;
     }
-    [self cancel];
+    [self resetWithChange:XYBookAudioTimerChangeExpired];
     return YES;
 }
 
@@ -81,9 +90,10 @@
     [self.completed addObject:playbackInstance];
     self.remainingCount--;
     if (self.remainingCount > 0) {
+        self.lastChange = XYBookAudioTimerChangeItemCompleted;
         return NO;
     }
-    [self cancel];
+    [self resetWithChange:XYBookAudioTimerChangeExpired];
     return YES;
 }
 

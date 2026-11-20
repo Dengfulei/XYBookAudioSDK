@@ -14,13 +14,16 @@
         return 0.0;
     }];
     XCTAssertTrue(([timer configure:@{@"mode" : @"trackCount", @"count" : @2} hasCurrentChapter:YES error:nil]));
+    XCTAssertEqual(timer.lastChange, XYBookAudioTimerChangeSet);
     NSUUID *first = NSUUID.UUID;
     XCTAssertFalse(([timer consumeNaturalCompletion:first]));
     XCTAssertFalse(([timer consumeNaturalCompletion:first]));
     XCTAssertEqualObjects([timer snapshot][@"remainingCount"], @1);
+    XCTAssertEqual(timer.lastChange, XYBookAudioTimerChangeItemCompleted);
     XCTAssertTrue(([timer consumeNaturalCompletion:NSUUID.UUID]));
     XCTAssertEqualObjects([timer snapshot][@"mode"], @"off");
     XCTAssertFalse(([timer consumeNaturalCompletion:NSUUID.UUID]));
+    XCTAssertEqual(timer.lastChange, XYBookAudioTimerChangeExpired);
 }
 
 - (void)testInvalidReplacementPreservesActiveTimer {
@@ -49,6 +52,12 @@
     now += 61;
     XCTAssertTrue(([timer consumeDeadline]));
     XCTAssertFalse(([timer consumeDeadline]));
+    XCTAssertEqual(timer.lastChange, XYBookAudioTimerChangeExpired);
+    XCTAssertTrue(([timer configure:@{@"mode" : @"trackCount", @"count" : @2} hasCurrentChapter:YES error:nil]));
+    XCTAssertEqual(timer.lastChange, XYBookAudioTimerChangeSet);
+    [timer queueDidEnd];
+    XCTAssertEqualObjects([timer snapshot][@"mode"], @"off");
+    XCTAssertEqual(timer.lastChange, XYBookAudioTimerChangeQueueEnded);
 }
 
 - (void)testQueueRejectsDuplicateIdentifiersAndMissingLoginFlag {

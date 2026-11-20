@@ -236,6 +236,10 @@
     return [self.session snckPlayback];
 }
 
+- (XYBookAudioTimerChange)snckTimerChange {
+    return [self.session snckTimerChange];
+}
+
 - (NSDictionary *)snckUserState {
     return [self.session snckUserState];
 }

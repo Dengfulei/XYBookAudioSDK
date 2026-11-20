@@ -215,6 +215,32 @@
     XCTAssertTrue([result[@"events"] containsObject:@"snckAudioTimerChanged"]);
 }
 
+- (void)testSnckTimerSetAfterExpirationReportsNewChange {
+    WKWebView *web = [self openRoot];
+    [self installSnckBridgeInWeb:web];
+    [self script:@"await snckCall('xhSnckReady');"
+                  "await snckCall('xhSnckAudioSetQueue',{items:[{id:'a',title:'A',url:'https://example.invalid/a.mp3'}]});"
+                  "await snckCall('xhSnckAudioSetTimer',{mode:'AFTER_DURATION',durationMs:250});"
+                  "return true;"
+             web:web];
+    [self waitForScript:@"snckEvents.some(e=>e.actionName==='snckAudioTimerChanged' && "
+                         "e.parameters.reason==='timer_expired' && e.parameters.timer.mode==='OFF')"
+                    web:web];
+    NSDictionary *timer =
+        [self script:@"const result=await snckCall('xhSnckAudioSetTimer',{mode:'AFTER_ITEMS',count:2});"
+                      "return result.parameters.timer;"
+                 web:web];
+    XCTAssertEqualObjects(timer[@"remainingCount"], @2);
+    [self waitForScript:@"snckEvents.some(e=>e.actionName==='snckAudioTimerChanged' && "
+                         "e.parameters.timer.mode==='AFTER_ITEMS')"
+                    web:web];
+    NSString *reason =
+        [self script:@"return snckEvents.find(e=>e.actionName==='snckAudioTimerChanged' && "
+                      "e.parameters.timer.mode==='AFTER_ITEMS').parameters.reason;"
+                 web:web];
+    XCTAssertEqualObjects(reason, @"timer_set");
+}
+
 - (void)testSnckUsesHostAccountAndShareAndClosesCurrentPage {
     WKWebView *web = [self openRoot];
     [self installSnckBridgeInWeb:web];

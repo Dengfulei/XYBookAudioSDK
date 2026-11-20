@@ -5,6 +5,14 @@ FOUNDATION_EXPORT NSTimeInterval const XYBookAudioCheckpointInterval;
 FOUNDATION_EXPORT NSString *const XYBookAudioPlaybackEvent;
 FOUNDATION_EXPORT NSString *const XYBookAudioErrorEvent;
 FOUNDATION_EXPORT NSString *const XYBookAudioIdentityEvent;
+
+typedef NS_ENUM(NSUInteger, XYBookAudioTimerChange) {
+    XYBookAudioTimerChangeSet,
+    XYBookAudioTimerChangeItemCompleted,
+    XYBookAudioTimerChangeQueueEnded,
+    XYBookAudioTimerChangeExpired
+};
+
 /// 返回 H5 与锁屏共用的倍速集合，避免多个入口支持范围不一致。
 FOUNDATION_EXPORT NSArray<NSNumber *> *XYBookAudioRates(void);
 /// 只接受有限 NSNumber 数值，排除布尔值；需要整数的计数不能使用小数。

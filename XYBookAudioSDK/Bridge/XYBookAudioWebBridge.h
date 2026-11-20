@@ -1,7 +1,7 @@
 // H5 业务入口：按 actionName 调用同名方法；窗口、宿主能力和听书命令各自沿用已有业务边界。
-#import "XYBookAudioSDKManager.h"
 #import "XYBookAudioLogger.h"
 #import "XYBookAudioBridgeWebView.h"
+#import "XYBookAudioMessageProtocol.h"
 #import "XYBookAudioWindowRouting.h"
 
 @interface XYBookAudioWebBridge : NSObject
@@ -27,6 +27,7 @@
 
 @interface XYBookAudioSDKManager (SnckBridge)
 - (NSDictionary *)snckPlayback;
+- (XYBookAudioTimerChange)snckTimerChange;
 - (NSDictionary *)snckUserState;
 - (NSUInteger)nextSnckEventVersion;
 - (void)executeSnckAudio:(NSString *)command

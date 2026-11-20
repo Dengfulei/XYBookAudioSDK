@@ -138,6 +138,10 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     };
 }
 
+- (XYBookAudioTimerChange)snckTimerChange {
+    return self.sleepTimer.lastChange;
+}
+
 - (NSDictionary *)snckPlayback {
     NSArray *items = self.queue.snckItems ?: @[];
     BOOL hasQueue = items.count > 0;
@@ -323,7 +327,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
         return;
     }
     if (self.index + 1 >= (NSInteger)self.queue.chapters.count) {
-        [self.sleepTimer cancel];
+        [self.sleepTimer queueDidEnd];
         self.reason = XYBookAudioValueQueueEnded;
         self.stateOverride = XYBookAudioValueCompleted;
         [self publish];

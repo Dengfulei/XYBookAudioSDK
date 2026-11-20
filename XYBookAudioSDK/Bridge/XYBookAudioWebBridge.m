@@ -1,12 +1,24 @@
 // 对应原项目 XYWebViewJSBridgeManager：完整 H5 请求直接进入 xh 同名方法，业务状态仍归 SDK 会话。
 #import "XYBookAudioWebBridge.h"
-#import "XYBookAudioMessageProtocol.h"
 #import <objc/runtime.h>
 
 static NSString *const XYBookAudioSnckMethodPrefix = @"xhSnck";
 static NSUInteger const XYBookAudioSnckMaximumMessageLength = 80 * 1024;
 /// 中文 UTF-8 经两次 URI 编码最多放大 15 倍；传输限额为原 JSON 限额预留编码与消息头空间。
 static NSUInteger const XYBookAudioMaximumEncodedMessageLength = 4 * 1024 * 1024;
+
+static NSString *XYBookAudioSnckTimerReason(XYBookAudioTimerChange change) {
+    switch (change) {
+        case XYBookAudioTimerChangeSet:
+            return @"timer_set";
+        case XYBookAudioTimerChangeItemCompleted:
+            return @"item_completed";
+        case XYBookAudioTimerChangeQueueEnded:
+            return @"queue_ended";
+        case XYBookAudioTimerChangeExpired:
+            return @"timer_expired";
+    }
+}
 
 static NSArray<NSString *> *XYBookAudioLegacyUIActions(void) {
     return @[
@@ -485,10 +497,7 @@ static SEL XYBookAudioH5Selector(id action) {
     if (![oldTimer[@"mode"] isEqual:timer[@"mode"]] ||
         ![oldTimer[@"remainingCount"] isEqual:timer[@"remainingCount"]] ||
         ![(oldTimer[@"deadlineElapsedMs"] ?: @0) isEqual:(timer[@"deadlineElapsedMs"] ?: @0)]) {
-        NSString *reason = [payload[XYBookAudioKeyReason] isEqual:XYBookAudioValueSleepDuration] ||
-                                   [payload[XYBookAudioKeyReason] isEqual:XYBookAudioValueSleepTrackCount]
-                               ? @"timer_expired"
-                               : @"timer_set";
+        NSString *reason = XYBookAudioSnckTimerReason([self.SDK snckTimerChange]);
         [self sendSnckEvent:@"snckAudioTimerChanged" payload:playback reason:reason];
     }
     NSTimeInterval now = NSProcessInfo.processInfo.systemUptime;
