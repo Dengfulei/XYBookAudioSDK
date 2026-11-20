@@ -23,26 +23,22 @@
 /* Begin PBXBuildFile section */
 		00529F995078F88E798A0190 /* AppLoginViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 27162CC811E6CF760CB4C418 /* AppLoginViewController.m */; };
 		121515A64290BAFE398CA406 /* XYBookAudioPolicyTests.m in Sources */ = {isa = PBXBuildFile; fileRef = ED6E53ED32306952F83D19F1 /* XYBookAudioPolicyTests.m */; };
-		28C66E83089D2F701D47BDD9 /* Pods_commonPods_XYBookAudioSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8E214D5F39861B0CF389A1E7 /* Pods_commonPods_XYBookAudioSDK.framework */; };
 		2C7E2507B6BBAB87524D2746 /* Fixture in Resources */ = {isa = PBXBuildFile; fileRef = 19902312D9759C2A288A0FE9 /* Fixture */; };
 		2FAB02C9305FA801004214EA /* XYBookAudioSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; };
 		2FAB02CA305FA801004214EA /* XYBookAudioSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		44A3225CF842467BD775A1C8 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A3D3D45D65F0EC5328E6AED /* main.m */; };
 		478BEA1262C158E11177129C /* XYBookAudioLayoutTests.m in Sources */ = {isa = PBXBuildFile; fileRef = BFE1BD5332566F16813CB7AB /* XYBookAudioLayoutTests.m */; };
-		7245557FA57D399A36F7D6FE /* Pods_commonPods_XYBookAudioSDKDemo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7385BA3B17F63D08050BDF74 /* Pods_commonPods_XYBookAudioSDKDemo.framework */; };
 		7332A12B5A6B75D10F8A7EAF /* AppAccountService.m in Sources */ = {isa = PBXBuildFile; fileRef = 109413132155D4BC6B10C11C /* AppAccountService.m */; };
 		78B4C24E18DB1732B70EB586 /* AppBookAudioService.m in Sources */ = {isa = PBXBuildFile; fileRef = 4CDC8EA48CA9C18207294ED7 /* AppBookAudioService.m */; };
 		87A5DE27890D44767019CD7B /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A354ACCDBD0BE076E61F51E9 /* Foundation.framework */; };
 		8B8CB14B4F5517E8050B8E23 /* XYBookAudioHostServiceTests.m in Sources */ = {isa = PBXBuildFile; fileRef = ACA977D915507205CDC749F8 /* XYBookAudioHostServiceTests.m */; };
 		8F298B127E19F373032BE0A4 /* XYBookAudioSDK.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		969AE909842114300A46BB41 /* Fixture in Resources */ = {isa = PBXBuildFile; fileRef = 19902312D9759C2A288A0FE9 /* Fixture */; };
-		C34653081F0707C03C09A850 /* Pods_XYBookAudioSDKTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2E106DCE174D4B5270AF9FB5 /* Pods_XYBookAudioSDKTests.framework */; };
 		D4FC3F6113CAA23F39848C27 /* XYBookAudioSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; };
 		DBA8D87478968FCE61398941 /* XYBookAudioWindowTests.m in Sources */ = {isa = PBXBuildFile; fileRef = BCED3A822A29AC7A5EF45517 /* XYBookAudioWindowTests.m */; };
 		F2C88FEAB59E7EC95D27FBD8 /* XYBookAudioSDK.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */; };
 		F43A28C8DD49F070244E35B7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A354ACCDBD0BE076E61F51E9 /* Foundation.framework */; };
 		F63C9AE8A3002880051467C5 /* XYBookAudioIntegrationTests.m in Sources */ = {isa = PBXBuildFile; fileRef = FAB15F300A694C0734E849D4 /* XYBookAudioIntegrationTests.m */; };
-		FAC0496A53B5E45A43257DAF /* Pods_commonPods_XYBookAudioSDKTestHost.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1E00D5B3CD314AE08EAB2690 /* Pods_commonPods_XYBookAudioSDKTestHost.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,37 +100,21 @@
 /* Begin PBXFileReference section */
 		109413132155D4BC6B10C11C /* AppAccountService.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AppAccountService.m; path = Account/AppAccountService.m; sourceTree = "<group>"; };
 		19902312D9759C2A288A0FE9 /* Fixture */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = folder; path = Fixture; sourceTree = "<group>"; };
-		1E00D5B3CD314AE08EAB2690 /* Pods_commonPods_XYBookAudioSDKTestHost.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_commonPods_XYBookAudioSDKTestHost.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		229792F45983AE01ABE908EF /* AppAccountService.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AppAccountService.h; path = Account/AppAccountService.h; sourceTree = "<group>"; };
 		27162CC811E6CF760CB4C418 /* AppLoginViewController.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AppLoginViewController.m; path = Account/AppLoginViewController.m; sourceTree = "<group>"; };
-		28FB2A442866BE28CC41D92C /* Pods-commonPods-XYBookAudioSDK.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDK.release.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDK/Pods-commonPods-XYBookAudioSDK.release.xcconfig"; sourceTree = "<group>"; };
-		2E106DCE174D4B5270AF9FB5 /* Pods_XYBookAudioSDKTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_XYBookAudioSDKTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2F6E865B122C28D0A63D9D19 /* AppLoginViewController.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AppLoginViewController.h; path = Account/AppLoginViewController.h; sourceTree = "<group>"; };
 		2FAB029F305F90CF004214EA /* XYBookAudioSDK.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = XYBookAudioSDK.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2FAB02AE305FA7A6004214EA /* XYBookAudioSDKDemo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XYBookAudioSDKDemo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A3D3D45D65F0EC5328E6AED /* main.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = main.m; path = Host/main.m; sourceTree = "<group>"; };
 		4CDC8EA48CA9C18207294ED7 /* AppBookAudioService.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; name = AppBookAudioService.m; path = BookAudio/AppBookAudioService.m; sourceTree = "<group>"; };
 		5616E17DB4755F5FE2695252 /* AppBookAudioService.h */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.h; name = AppBookAudioService.h; path = BookAudio/AppBookAudioService.h; sourceTree = "<group>"; };
-		7154C7FA5883CCB4374E89DE /* Pods-commonPods-XYBookAudioSDKTestHost.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDKTestHost.debug.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDKTestHost/Pods-commonPods-XYBookAudioSDKTestHost.debug.xcconfig"; sourceTree = "<group>"; };
-		7385BA3B17F63D08050BDF74 /* Pods_commonPods_XYBookAudioSDKDemo.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_commonPods_XYBookAudioSDKDemo.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		753B1BD28E5C8809F4E797C0 /* XYBookAudioSDKTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = XYBookAudioSDKTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		7DDE92BD790B76D374514F16 /* Pods-XYBookAudioSDK.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDK.debug.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDK/Pods-XYBookAudioSDK.debug.xcconfig"; sourceTree = "<group>"; };
-		8E214D5F39861B0CF389A1E7 /* Pods_commonPods_XYBookAudioSDK.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_commonPods_XYBookAudioSDK.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		92861BCEF83EF91DC75EBAF1 /* Pods-commonPods-XYBookAudioSDKDemo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDKDemo.debug.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDKDemo/Pods-commonPods-XYBookAudioSDKDemo.debug.xcconfig"; sourceTree = "<group>"; };
 		A2D1A6EA75B6FD5B4A1585A6 /* XYBookAudioSDKTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = XYBookAudioSDKTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A354ACCDBD0BE076E61F51E9 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS18.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
-		A39E986481E05BFD42D0E9C6 /* Pods-XYBookAudioSDKDemo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDKDemo.release.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDKDemo/Pods-XYBookAudioSDKDemo.release.xcconfig"; sourceTree = "<group>"; };
-		AB44F10E3D715BBAF7BD0413 /* Pods-commonPods-XYBookAudioSDK.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDK.debug.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDK/Pods-commonPods-XYBookAudioSDK.debug.xcconfig"; sourceTree = "<group>"; };
 		ACA977D915507205CDC749F8 /* XYBookAudioHostServiceTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioHostServiceTests.m; sourceTree = "<group>"; };
 		BCED3A822A29AC7A5EF45517 /* XYBookAudioWindowTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioWindowTests.m; sourceTree = "<group>"; };
-		BF520751A81DD87A5DF2F4F1 /* Pods-XYBookAudioSDK.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDK.release.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDK/Pods-XYBookAudioSDK.release.xcconfig"; sourceTree = "<group>"; };
 		BFE1BD5332566F16813CB7AB /* XYBookAudioLayoutTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioLayoutTests.m; sourceTree = "<group>"; };
-		C3955B145F727E3D0C3B23C6 /* Pods-commonPods-XYBookAudioSDKDemo.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDKDemo.release.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDKDemo/Pods-commonPods-XYBookAudioSDKDemo.release.xcconfig"; sourceTree = "<group>"; };
-		C8E8F609EAB293E9DBE35031 /* Pods-commonPods-XYBookAudioSDKTestHost.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-commonPods-XYBookAudioSDKTestHost.release.xcconfig"; path = "Target Support Files/Pods-commonPods-XYBookAudioSDKTestHost/Pods-commonPods-XYBookAudioSDKTestHost.release.xcconfig"; sourceTree = "<group>"; };
-		CB48B169EF87C7D46750E7BF /* Pods-XYBookAudioSDKTests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDKTests.release.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDKTests/Pods-XYBookAudioSDKTests.release.xcconfig"; sourceTree = "<group>"; };
-		E0A41A4402513BC74BFEDE02 /* Pods-XYBookAudioSDKTests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDKTests.debug.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDKTests/Pods-XYBookAudioSDKTests.debug.xcconfig"; sourceTree = "<group>"; };
 		ED6E53ED32306952F83D19F1 /* XYBookAudioPolicyTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioPolicyTests.m; sourceTree = "<group>"; };
-		F34D3ACBB92E704781624177 /* Pods-XYBookAudioSDKDemo.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-XYBookAudioSDKDemo.debug.xcconfig"; path = "Target Support Files/Pods-XYBookAudioSDKDemo/Pods-XYBookAudioSDKDemo.debug.xcconfig"; sourceTree = "<group>"; };
 		FAB15F300A694C0734E849D4 /* XYBookAudioIntegrationTests.m */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.c.objc; path = XYBookAudioIntegrationTests.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -182,7 +162,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				28C66E83089D2F701D47BDD9 /* Pods_commonPods_XYBookAudioSDK.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -191,7 +170,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				2FAB02C9305FA801004214EA /* XYBookAudioSDK.framework in Frameworks */,
-				7245557FA57D399A36F7D6FE /* Pods_commonPods_XYBookAudioSDKDemo.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -201,7 +179,6 @@
 			files = (
 				87A5DE27890D44767019CD7B /* Foundation.framework in Frameworks */,
 				F2C88FEAB59E7EC95D27FBD8 /* XYBookAudioSDK.framework in Frameworks */,
-				C34653081F0707C03C09A850 /* Pods_XYBookAudioSDKTests.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -211,7 +188,6 @@
 			files = (
 				F43A28C8DD49F070244E35B7 /* Foundation.framework in Frameworks */,
 				D4FC3F6113CAA23F39848C27 /* XYBookAudioSDK.framework in Frameworks */,
-				FAC0496A53B5E45A43257DAF /* Pods_commonPods_XYBookAudioSDKTestHost.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -233,7 +209,6 @@
 				2FAB02AF305FA7A6004214EA /* XYBookAudioSDKDemo */,
 				2FAB02C8305FA801004214EA /* Frameworks */,
 				2FAB02A0305F90CF004214EA /* Products */,
-				E294685A67355E921D151371 /* Pods */,
 				3DDF0FA1FE35A2C3FC9BB50A /* Tests */,
 				15563E5B5729239CCFB242AD /* DemoResources */,
 			);
@@ -254,10 +229,6 @@
 			isa = PBXGroup;
 			children = (
 				D480FC2878660DC4F9374169 /* iOS */,
-				2E106DCE174D4B5270AF9FB5 /* Pods_XYBookAudioSDKTests.framework */,
-				8E214D5F39861B0CF389A1E7 /* Pods_commonPods_XYBookAudioSDK.framework */,
-				7385BA3B17F63D08050BDF74 /* Pods_commonPods_XYBookAudioSDKDemo.framework */,
-				1E00D5B3CD314AE08EAB2690 /* Pods_commonPods_XYBookAudioSDKTestHost.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -298,25 +269,6 @@
 			name = iOS;
 			sourceTree = "<group>";
 		};
-		E294685A67355E921D151371 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				7DDE92BD790B76D374514F16 /* Pods-XYBookAudioSDK.debug.xcconfig */,
-				BF520751A81DD87A5DF2F4F1 /* Pods-XYBookAudioSDK.release.xcconfig */,
-				F34D3ACBB92E704781624177 /* Pods-XYBookAudioSDKDemo.debug.xcconfig */,
-				A39E986481E05BFD42D0E9C6 /* Pods-XYBookAudioSDKDemo.release.xcconfig */,
-				AB44F10E3D715BBAF7BD0413 /* Pods-commonPods-XYBookAudioSDK.debug.xcconfig */,
-				28FB2A442866BE28CC41D92C /* Pods-commonPods-XYBookAudioSDK.release.xcconfig */,
-				92861BCEF83EF91DC75EBAF1 /* Pods-commonPods-XYBookAudioSDKDemo.debug.xcconfig */,
-				C3955B145F727E3D0C3B23C6 /* Pods-commonPods-XYBookAudioSDKDemo.release.xcconfig */,
-				CB48B169EF87C7D46750E7BF /* Pods-XYBookAudioSDKTests.release.xcconfig */,
-				E0A41A4402513BC74BFEDE02 /* Pods-XYBookAudioSDKTests.debug.xcconfig */,
-				C8E8F609EAB293E9DBE35031 /* Pods-commonPods-XYBookAudioSDKTestHost.release.xcconfig */,
-				7154C7FA5883CCB4374E89DE /* Pods-commonPods-XYBookAudioSDKTestHost.debug.xcconfig */,
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -334,7 +286,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 982DDEC4FB5F60D134963151 /* Build configuration list for PBXNativeTarget "XYBookAudioSDKTests" */;
 			buildPhases = (
-				0A51666DB3379820DB93693A /* [CP] Check Pods Manifest.lock */,
 				9AD394D2D514C30F02B1E40F /* Sources */,
 				74B14D1007686F6F1893DA99 /* Frameworks */,
 				EEA39C7D63B0B20F5A7E4191 /* Resources */,
@@ -354,7 +305,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2FAB02A5305F90CF004214EA /* Build configuration list for PBXNativeTarget "XYBookAudioSDK" */;
 			buildPhases = (
-				755DEAF571B7D4BD44E06B0A /* [CP] Check Pods Manifest.lock */,
 				2FAB029A305F90CF004214EA /* Headers */,
 				2FAB029B305F90CF004214EA /* Sources */,
 				2FAB029C305F90CF004214EA /* Frameworks */,
@@ -376,12 +326,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2FAB02C5305FA7A7004214EA /* Build configuration list for PBXNativeTarget "XYBookAudioSDKDemo" */;
 			buildPhases = (
-				B752B2B6FD0A527CE47629AB /* [CP] Check Pods Manifest.lock */,
 				2FAB02AA305FA7A6004214EA /* Sources */,
 				2FAB02AB305FA7A6004214EA /* Frameworks */,
 				2FAB02AC305FA7A6004214EA /* Resources */,
 				2FAB02CD305FA801004214EA /* Embed Frameworks */,
-				A501301F5C5B76957C7DCE75 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -400,12 +348,10 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = F33FD7132106C61105BFFE33 /* Build configuration list for PBXNativeTarget "XYBookAudioSDKTestHost" */;
 			buildPhases = (
-				1ADED5B3B82F5ED990647DEA /* [CP] Check Pods Manifest.lock */,
 				3A285465A6AB468F6F4B904B /* Sources */,
 				7A79D9D35F8CD02B6EB9ADA2 /* Frameworks */,
 				1335EA2141D02B1D84C55A2F /* Resources */,
 				0E4507B946BCB583769D3F80 /* Embed Frameworks */,
-				77F2B666D163AAA3C3D568A3 /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -494,50 +440,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		0A51666DB3379820DB93693A /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-XYBookAudioSDKTests-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		1ADED5B3B82F5ED990647DEA /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-commonPods-XYBookAudioSDKTestHost-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
 		2FAB02D2305FA892004214EA /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -554,92 +456,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "env -u TARGET_BUILD_DIR -u SDKROOT bash \"${SRCROOT}/Scripts/package.sh\"";
-		};
-		755DEAF571B7D4BD44E06B0A /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-commonPods-XYBookAudioSDK-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
-		};
-		77F2B666D163AAA3C3D568A3 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-commonPods-XYBookAudioSDKTestHost/Pods-commonPods-XYBookAudioSDKTestHost-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-commonPods-XYBookAudioSDKTestHost/Pods-commonPods-XYBookAudioSDKTestHost-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-commonPods-XYBookAudioSDKTestHost/Pods-commonPods-XYBookAudioSDKTestHost-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		A501301F5C5B76957C7DCE75 /* [CP] Embed Pods Frameworks */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-commonPods-XYBookAudioSDKDemo/Pods-commonPods-XYBookAudioSDKDemo-frameworks-${CONFIGURATION}-input-files.xcfilelist",
-			);
-			inputPaths = (
-			);
-			name = "[CP] Embed Pods Frameworks";
-			outputFileListPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-commonPods-XYBookAudioSDKDemo/Pods-commonPods-XYBookAudioSDKDemo-frameworks-${CONFIGURATION}-output-files.xcfilelist",
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-commonPods-XYBookAudioSDKDemo/Pods-commonPods-XYBookAudioSDKDemo-frameworks.sh\"\n";
-			showEnvVarsInLog = 0;
-		};
-		B752B2B6FD0A527CE47629AB /* [CP] Check Pods Manifest.lock */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
-				"${PODS_ROOT}/Manifest.lock",
-			);
-			name = "[CP] Check Pods Manifest.lock";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-commonPods-XYBookAudioSDKDemo-checkManifestLockResult.txt",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
-			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -712,7 +528,6 @@
 /* Begin XCBuildConfiguration section */
 		10455D8CB0941B98474D5581 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C8E8F609EAB293E9DBE35031 /* Pods-commonPods-XYBookAudioSDKTestHost.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -742,7 +557,6 @@
 		};
 		2FAB02A6305F90CF004214EA /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = AB44F10E3D715BBAF7BD0413 /* Pods-commonPods-XYBookAudioSDK.debug.xcconfig */;
 			buildSettings = {
 				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CLANG_ENABLE_MODULES = YES;
@@ -790,7 +604,6 @@
 		};
 		2FAB02A7305F90CF004214EA /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 28FB2A442866BE28CC41D92C /* Pods-commonPods-XYBookAudioSDK.release.xcconfig */;
 			buildSettings = {
 				BUILD_LIBRARY_FOR_DISTRIBUTION = YES;
 				CLANG_ENABLE_MODULES = YES;
@@ -963,7 +776,6 @@
 		};
 		2FAB02C6305FA7A7004214EA /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 92861BCEF83EF91DC75EBAF1 /* Pods-commonPods-XYBookAudioSDKDemo.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1006,7 +818,6 @@
 		};
 		2FAB02C7305FA7A7004214EA /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = C3955B145F727E3D0C3B23C6 /* Pods-commonPods-XYBookAudioSDKDemo.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1065,7 +876,6 @@
 		};
 		8C66FFA2FD7866495DBBDBC3 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = CB48B169EF87C7D46750E7BF /* Pods-XYBookAudioSDKTests.release.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;
@@ -1097,7 +907,6 @@
 		};
 		D58034E2DB1AB0BD77431C15 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 7154C7FA5883CCB4374E89DE /* Pods-commonPods-XYBookAudioSDKTestHost.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -1126,7 +935,6 @@
 		};
 		F9F91E64478EEB124C475EE5 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = E0A41A4402513BC74BFEDE02 /* Pods-XYBookAudioSDKTests.debug.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CLANG_ENABLE_MODULES = YES;

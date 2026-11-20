@@ -1,7 +1,7 @@
 // 宿主唯一业务入口；持有独立播放会话，页面关闭不销毁会话。公开方法必须在主线程调用。
 #import <UIKit/UIKit.h>
-#import "XYBookAudioTypes.h"
-#import "XYBookAudioHost.h"
+#import <XYBookAudioSDK/XYBookAudioTypes.h>
+#import <XYBookAudioSDK/XYBookAudioHost.h>
 
 NS_ASSUME_NONNULL_BEGIN
 typedef void (^XYBookAudioCompletion)(NSDictionary *_Nullable result, NSError *_Nullable error);

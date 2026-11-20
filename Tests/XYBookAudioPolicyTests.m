@@ -79,14 +79,22 @@
     NSDictionary *chapter = @{
         @"chapterId" : @"one",
         @"title" : @"First",
-        @"requiresLogin" : @NO,
-        @"audioURL" : @"file:///fixture/tone.wav"
+        @"requiresLogin" : @YES,
+        @"audioURL" : @"file:///fixture/tone.wav",
+        @"durationMs" : @4000.25
     };
-    NSError *error;
-    XCTAssertNotNil(
-        ([XYBookAudioQueue queueWithParameters:@{@"bookId" : @"book", @"title" : @"Book", @"chapters" : @[ chapter ]}
-                                         error:&error]));
+    NSError *error = nil;
+    XYBookAudioQueue *queue =
+        [XYBookAudioQueue queueWithParameters:@{@"bookId" : @"book", @"title" : @"Book", @"chapters" : @[ chapter ]}
+                                        error:&error];
     XCTAssertNil(error);
+    XCTAssertEqual(queue.chapters.count, 1u);
+    XYBookAudioChapter *model = queue.chapters.firstObject;
+    XCTAssertEqualObjects(model.chapterId, @"one");
+    XCTAssertEqualObjects(model.title, @"First");
+    XCTAssertTrue(model.requiresLogin);
+    XCTAssertEqualObjects(model.audioURL, @"file:///fixture/tone.wav");
+    XCTAssertEqualObjects(model.durationMs, @4000.25);
 }
 
 @end

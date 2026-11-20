@@ -1,7 +1,6 @@
 // 将 H5 队列原子映射为章节模型；这里只校验数据结构，登录与来源权限由播放会话判断。
 #import "XYBookAudioQueue.h"
 #import "XYBookAudioMessageProtocol.h"
-#import <YYModel/YYModel.h>
 
 @implementation XYBookAudioQueue
 
@@ -117,17 +116,23 @@
         return nil;
     }
     NSMutableSet *identifiers = [NSMutableSet set];
-    NSMutableArray *models = [NSMutableArray array];
-    for (id chapter in chapters) {
-        if (![self validChapter:chapter] || [identifiers containsObject:chapter[XYBookAudioKeyChapterID]]) {
+    NSMutableArray<XYBookAudioChapter *> *models = [NSMutableArray arrayWithCapacity:chapters.count];
+    for (NSDictionary *entry in chapters) {
+        if (![self validChapter:entry] || [identifiers containsObject:entry[XYBookAudioKeyChapterID]]) {
             if (error) {
                 *error = XYBookAudioError(XYBookAudioInvalidArgument,
                                           @"Invalid or duplicate chapter; requiresLogin must be a JSON boolean.");
             }
             return nil;
         }
-        [identifiers addObject:chapter[XYBookAudioKeyChapterID]];
-        [models addObject:[XYBookAudioChapter yy_modelWithDictionary:chapter]];
+        XYBookAudioChapter *chapter = [XYBookAudioChapter new];
+        chapter.chapterId = entry[XYBookAudioKeyChapterID];
+        chapter.title = entry[XYBookAudioKeyTitle];
+        chapter.requiresLogin = [entry[XYBookAudioKeyRequiresLogin] boolValue];
+        chapter.audioURL = entry[XYBookAudioKeyAudioURL];
+        chapter.durationMs = entry[XYBookAudioKeyDurationMs];
+        [identifiers addObject:chapter.chapterId];
+        [models addObject:chapter];
     }
     XYBookAudioQueue *queue = [self new];
     queue->_bookId = [parameters[XYBookAudioKeyBookID] copy];

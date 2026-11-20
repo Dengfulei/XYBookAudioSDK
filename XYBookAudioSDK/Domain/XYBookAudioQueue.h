@@ -1,4 +1,4 @@
-// 队列输入的校验边界；内部使用 YYModel 映射，只有整个队列合法时才允许替换现有状态。
+// 校验并构建播放队列，只有整个队列合法时才允许替换现有状态。
 #import "XYBookAudioTypes.h"
 
 @interface XYBookAudioQueue : NSObject

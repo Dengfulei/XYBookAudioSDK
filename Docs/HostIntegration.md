@@ -150,7 +150,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 日志覆盖页面加载与失败、可信来源拒绝、JS 传输错误、命令接收／回执、播放状态、宿主登录／分享／音频交接、定时结束和断点错误。周期进度不会逐秒打印。日志不输出用户标识、完整请求／快照、音源或页面 URL、token、错误 userInfo 或原始错误描述；未知的宿主错误域统一标记为 `ExternalError`，原始业务错误仍照常返回调用方。
 
-此配置只控制 **XYBookAudioSDK 自己的日志**。iOS 的 WebKit／AVFoundation 系统输出以及宿主、YYModel 自己的日志不受此开关控制。关闭日志不会隐藏加载失败界面、错误事件或 completion 错误。SDK 不写日志文件、不上传日志。
+此配置只控制 **XYBookAudioSDK 自己的日志**。iOS 的 WebKit／AVFoundation 系统输出和宿主日志不受此开关控制。关闭日志不会隐藏加载失败界面、错误事件或 completion 错误。SDK 不写日志文件、不上传日志。
 
 ## 宿主能力
 
@@ -178,16 +178,14 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 ```ruby
 platform :ios, '15.0'
-use_frameworks! :linkage => :dynamic
 target 'YourApp' do
   pod 'XYBookAudioSDK', :path => '/path/to/XYBookAudioSDK-1.0.0'
-  # 宿主已有 YYModel 时由同一 Pod 依赖图解析，不要再静态拷贝到工程。
 end
 ```
 
 安装后导入 `<XYBookAudioSDK/XYBookAudioSDK.h>`，Swift 使用 `import XYBookAudioSDK`。包内 Demo 也只按此方式集成。podspec 的远程 URL 是明确的占位配置；当前支持本地 :path，远程发布前必须替换为真实发行地址。
 
-手动接入使用 `Frameworks` 下的 SDK 和 `Dependencies` 下的 YYModel 对应切片，两者均需 Embed & Sign。SDK 不静态包含 YYModel，单独拷贝 SDK 二进制不足以满足运行时依赖。
+手动接入时，将 `Frameworks/XYBookAudioSDK.xcframework` 添加到宿主 App target，并选择 Embed & Sign。
 
 ## 后台与数据
 
@@ -199,7 +197,7 @@ SDK 不实现购买、下载、离线、TTS、云同步、原生悬浮播放器�
 
 ## 依赖与隐私
 
-外部依赖只有 YYModel 1.0.4（MIT），用于内部数据映射。`otool -L` 可见独立 YYModel 动态链接，公开头不暴露 YYModel 类型。手动接入需要一起嵌入 YYModel；Pod 接入须用动态 framework，不能混入另一份静态 YYModel。
+SDK 只链接 iOS 系统库。发行包中的 `DEPENDENCIES.txt` 列出二进制的动态链接项。
 
 SDK 无埋点上传；封面、音频和网页请求只访问配置／H5 给定资源。简化用户 ID 用于本地状态隔离；宿主提供的标准用户资料与系统资料按 H5 请求原样回传，不进入 SDK 日志或持久化。宿主与 H5 的数据收集行为由各自的隐私声明覆盖。
 

@@ -2,7 +2,6 @@
 #import "XYBookAudioDemoViewController.h"
 #import "BookAudio/AppBookAudioService.h"
 #import "Account/AppAccountService.h"
-#import <YYModel/YYModel.h>
 
 @interface XYBookAudioDemoViewController ()
 
@@ -58,7 +57,11 @@
 - (void)receiveBookAudioEvent:(NSNotification *)notification {
     NSString *event = notification.userInfo[AppBookAudioServiceEventNameKey];
     NSDictionary *parameters = notification.userInfo[AppBookAudioServiceEventParametersKey];
-    self.status.text = [NSString stringWithFormat:@"%@\n%@", event, [parameters yy_modelToJSONString]];
+    NSData *data = parameters && [NSJSONSerialization isValidJSONObject:parameters]
+                       ? [NSJSONSerialization dataWithJSONObject:parameters options:0 error:nil]
+                       : nil;
+    NSString *json = data ? [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding] : nil;
+    self.status.text = [NSString stringWithFormat:@"%@\n%@", event, json ?: parameters.description];
 }
 
 /// 页面调用宿主账号模块退出；账号变更通知由听书接入层接收，页面无需直接刷新 SDK。

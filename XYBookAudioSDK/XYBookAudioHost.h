@@ -1,6 +1,6 @@
 // 宿主提供身份、登录、分享和音频交接；SDK 不实现宿主账号体系，所有 completion 应恰好回调一次。
 #import <UIKit/UIKit.h>
-#import "XYBookAudioTypes.h"
+#import <XYBookAudioSDK/XYBookAudioTypes.h>
 
 NS_ASSUME_NONNULL_BEGIN
 typedef NS_ENUM(NSInteger, XYBookAudioLoginResult) {

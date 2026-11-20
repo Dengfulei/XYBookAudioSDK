@@ -10,8 +10,7 @@ release = project / 'build/Distribution/XYBookAudioSDK-1.0.0'
 if release.exists():
     shutil.rmtree(release)
 release.mkdir(parents=True)
-for name in ('Frameworks', 'Dependencies'):
-    shutil.copytree(products / name, release / name)
+shutil.copytree(products / 'Frameworks', release / 'Frameworks')
 shutil.copy2(products / 'DEPENDENCIES.txt', release / 'DEPENDENCIES.txt')
 shutil.copytree(project / 'Docs', release / 'Docs')
 specification = (project / 'XYBookAudioSDK.podspec').read_text()
@@ -19,10 +18,8 @@ specification = (project / 'XYBookAudioSDK.podspec').read_text()
 demo = release / 'Demo'
 shutil.copytree(project / 'XYBookAudioSDKDemo', demo / 'Sources', ignore=shutil.ignore_patterns('*.xcassets'))
 shutil.copytree(project / 'DemoResources/Fixture', demo / 'Fixture')
-(demo / 'Podfile').write_text("source 'https://cdn.cocoapods.org/'\nplatform :ios, '15.0'\nuse_frameworks! :linkage => :dynamic\n"
-    "target 'XYBookAudioSDKDemo' do\n  pod 'XYBookAudioSDK', :path => '..'\n  pod 'YYModel', '1.0.4'\nend\n"
-    "post_install do |installer|\n  installer.pods_project.targets.each do |target|\n"
-    "    target.build_configurations.each { |configuration| configuration.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0' }\n  end\nend\n")
+(demo / 'Podfile').write_text("platform :ios, '15.0'\n"
+    "target 'XYBookAudioSDKDemo' do\n  pod 'XYBookAudioSDK', :path => '..'\nend\n")
 # 使用当前 Ruby 环境，允许发布机器选择已安装 xcodeproj 的 Ruby。
 ruby = os.environ.get('XYBOOK_RUBY', 'ruby')
 subprocess.run([ruby, str(project / 'Scripts/generate_binary_demo.rb'), str(demo)], check=True)
@@ -30,6 +27,6 @@ subprocess.run([ruby, str(project / 'Scripts/generate_binary_demo.rb'), str(demo
     '独立二进制发行包，最低 iOS 15。framework 内置听书 WebView 和原生播放器。\n\n'
     '接入说明见 [Docs/HostIntegration.md](Docs/HostIntegration.md)。\n\n'
     '运行示例：`cd Demo && pod install --no-repo-update`，然后打开 `XYBookAudioSDKDemo.xcworkspace`。\n\n'
-    '示例只依赖发布二进制，不需要 SDK 实现源码或原 App。YYModel 是共享动态依赖。\n')
+    '示例通过 CocoaPods 加载发行包内的 SDK 二进制。\n')
 subprocess.run(['python3', str(project / 'Scripts/checksums.py'), str(release)], check=True)
 print(shutil.make_archive(str(products / 'XYBookAudioSDK-1.0.0'), 'zip', release.parent, release.name))

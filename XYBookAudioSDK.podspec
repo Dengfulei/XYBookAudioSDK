@@ -10,5 +10,4 @@ Pod::Spec.new do |spec|
   spec.ios.deployment_target = '15.0'
   spec.vendored_frameworks = 'Products/Frameworks/XYBookAudioSDK.xcframework'
   spec.frameworks = 'UIKit', 'WebKit', 'AVFoundation', 'MediaPlayer'
-  spec.dependency 'YYModel', '1.0.4'
 end

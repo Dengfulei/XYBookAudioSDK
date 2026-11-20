@@ -5,7 +5,6 @@
 ## 在项目中调试
 
 ```sh
-pod install --no-repo-update
 open XYBookAudioSDK.xcworkspace
 ```
 
@@ -22,15 +21,15 @@ bash Scripts/format.sh --check
 
 ## 导出给其他宿主
 
-打包依赖 Xcode、CocoaPods、Python 3，以及装有 `xcodeproj` gem 的 Ruby。通过 `XYBOOK_RUBY` 可指定 Ruby 的路径。
+打包使用 Xcode、Python 3，以及装有 `xcodeproj` gem 的 Ruby。通过 `XYBOOK_RUBY` 可指定 Ruby 的路径。
 
 ```sh
 bash Scripts/package.sh
 ```
 
 - `Products/Frameworks/XYBookAudioSDK.xcframework` 包含 arm64 真机、arm64／x86_64 模拟器切片及符号文件。
-- `Products/XYBookAudioSDK-1.0.0.zip` 包含 SDK、动态依赖 YYModel 1.0.4、SHA-256 校验清单、接入文档和独立二进制 Demo。
-- 解压后可用本地 CocoaPods `:path` 接入。手动接入时将 SDK 和 YYModel 的 XCFramework 一起 Link、Embed & Sign。详细步骤见 [二进制集成](Docs/HostIntegration.md#二进制集成)。
+- `Products/XYBookAudioSDK-1.0.0.zip` 包含 SDK、SHA-256 校验清单、接入文档和独立二进制 Demo。
+- 解压后可用本地 CocoaPods `:path` 接入。手动接入时添加 `XYBookAudioSDK.xcframework` 并选择 Embed & Sign。详细步骤见 [二进制集成](Docs/HostIntegration.md#二进制集成)。
 
 ## 命名规范
 
