@@ -96,32 +96,10 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     NSArray<NSString *> *arguments = NSProcessInfo.processInfo.arguments;
     NSUInteger entryIndex = [arguments indexOfObject:@"--listening-entry-url"];
     BOOL useRemoteEntry = entryIndex != NSNotFound;
-    NSURL *entry = nil;
-    if (useRemoteEntry) {
-        if (entryIndex + 1 < arguments.count) {
-            entry = [NSURL URLWithString:arguments[entryIndex + 1]];
-        }
-        if (![entry.scheme.lowercaseString isEqualToString:@"https"] || !entry.host.length) {
-            if (error) {
-                *error =
-                    XYBookAudioError(XYBookAudioInvalidArgument, @"--listening-entry-url 需要一个有效的 HTTPS 地址。");
-            }
-            return NO;
-        }
-    } else {
-        entry = [NSBundle.mainBundle URLForResource:@"index" withExtension:@"html" subdirectory:@"Fixture"];
-    }
-    if (!entry) {
-        if (error) {
-            *error = XYBookAudioError(XYBookAudioInvalidArgument,
-                                      @"未找到 Fixture/index.html，请检查宿主资源或配置远程 H5 地址。");
-        }
-        return NO;
-    }
+    NSURL *entry = [NSURL URLWithString:@"https://cankaoxiaoxi.testnewmedia.xinhuaapp.com/h5/snck/index.html#/?hideTopView=1&vc=1"];
     XYBookAudioConfiguration *configuration =
         [[XYBookAudioConfiguration alloc] initWithHostIdentifier:NSBundle.mainBundle.bundleIdentifier entryURL:entry];
-    configuration.environment = useRemoteEntry ? @"remote-integration" : @"local-integration";
-    configuration.webInspectorEnabled = [arguments containsObject:@"--listening-web-inspector"];
+    configuration.webInspectorEnabled = YES;
 #if DEBUG
     // 仅示例本地调试开启日志；正式接入通过统一配置选择日志级别，SDK 默认关闭。
     configuration.logLevel = XYBookAudioLogLevelDebug;
