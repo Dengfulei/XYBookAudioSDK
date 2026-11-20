@@ -12,7 +12,7 @@
 - (void)getUserInfo:(NSDictionary *)parameters
           presenter:(UIViewController *)presenter
          completion:(XYBookAudioCompletion)completion;
-/// 原样读取宿主系统资料；该能力是原版 JS SDK 用户资料回调的依赖。
+/// 优先读取宿主系统资料，缺省时从当前 App、设备和窗口读取。
 - (void)getSystemInfoFrom:(UIViewController *)presenter completion:(XYBookAudioCompletion)completion;
 
 /// 请求宿主登录；账号更新与超时由本模块管理，结果不直接定义 H5 回调。

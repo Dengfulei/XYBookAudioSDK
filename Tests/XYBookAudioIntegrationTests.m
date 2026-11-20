@@ -58,6 +58,18 @@
 
 @end
 
+@interface XYBookAudioSystemInfoTestHost : XYBookAudioTestHost
+@property (nonatomic, copy) NSDictionary *systemInfo;
+@end
+
+@implementation XYBookAudioSystemInfoTestHost
+
+- (NSDictionary *)bookAudioSystemInfoFromViewController:(UIViewController *)controller {
+    return self.systemInfo;
+}
+
+@end
+
 @interface XYBookAudioIntegrationTests : XCTestCase
 
 @property (nonatomic, strong) XYBookAudioSDKManager *SDK;
@@ -186,6 +198,50 @@
     }];
     [self waitForExpectations:@[ done ] timeout:2];
     XCTAssertEqualObjects([self.SDK getSnapshot], snapshot);
+}
+
+- (void)testNativeSystemInfoProvidesDefaultsBeforeOpening {
+    XCTestExpectation *done = [self expectationWithDescription:@"没有听书窗口时返回默认系统资料"];
+    [self.SDK executeAction:@"xhGetSystemInfo" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertEqualObjects(result[@"system"], UIDevice.currentDevice.systemVersion);
+        XCTAssertEqualObjects(result[@"device_token"], UIDevice.currentDevice.identifierForVendor.UUIDString);
+        XCTAssertEqualObjects(result[@"appStatusBarHeight"], @"0");
+        XCTAssertEqualObjects(result[@"bottomSafeHeight"], @"0");
+        [done fulfill];
+    }];
+    [self waitForExpectations:@[ done ] timeout:2];
+}
+
+- (void)testNativeSystemInfoUsesHostOverrideAndRejectsInvalidData {
+    XYBookAudioSystemInfoTestHost *host = [XYBookAudioSystemInfoTestHost new];
+    host.identity = self.host.identity;
+    NSDictionary *customInfo = @{@"device_token" : @"host-device", @"custom" : @YES};
+    host.systemInfo = customInfo;
+    [self.SDK dispose];
+    self.host = host;
+    NSError *initializationError = nil;
+    self.SDK = [[XYBookAudioSDKManager alloc] initWithConfiguration:self.configuration host:host
+                                                              error:&initializationError];
+    XCTAssertNil(initializationError);
+
+    XCTestExpectation *overridden = [self expectationWithDescription:@"原样返回宿主资料"];
+    [self.SDK executeAction:@"xhGetSystemInfo" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
+        XCTAssertNil(error);
+        XCTAssertEqualObjects(result, customInfo);
+        [overridden fulfill];
+    }];
+    [self waitForExpectations:@[ overridden ] timeout:2];
+
+    host.systemInfo = @{};
+    XCTestExpectation *rejected = [self expectationWithDescription:@"拒绝空的宿主资料"];
+    [self.SDK executeAction:@"xhGetSystemInfo" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
+        XCTAssertNil(result);
+        XCTAssertEqualObjects(error.domain, XYBookAudioErrorDomain);
+        XCTAssertEqual(error.code, XYBookAudioHostFailed);
+        [rejected fulfill];
+    }];
+    [self waitForExpectations:@[ rejected ] timeout:2];
 }
 
 - (void)testLoggingDefaultsOffAndRejectsInvalidLevel {

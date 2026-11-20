@@ -393,6 +393,19 @@
     NSDictionary *system = [self script:@"return await call('xhGetSystemInfo');" web:web];
     XCTAssertEqualObjects(system[@"device_token"], UIDevice.currentDevice.identifierForVendor.UUIDString);
     XCTAssertEqualObjects(system[@"system"], UIDevice.currentDevice.systemVersion);
+    XCTAssertTrue([system[@"types"] length] > 0);
+    XCTAssertEqualObjects(system[@"debug"], @1);
+    NSBundle *bundle = NSBundle.mainBundle;
+    XCTAssertEqualObjects(system[@"program_version"], [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"]
+                                                          ?: [bundle objectForInfoDictionaryKey:@"CFBundleVersion"]);
+    XCTAssertEqualObjects(system[@"program_name"], [bundle objectForInfoDictionaryKey:@"CFBundleDisplayName"]
+                                                       ?: [bundle objectForInfoDictionaryKey:@"CFBundleName"]);
+    UIWindow *window = web.window;
+    NSString *statusBarHeight =
+        [NSString stringWithFormat:@"%.f", window.windowScene.statusBarManager.statusBarFrame.size.height];
+    NSString *bottomSafeHeight = [NSString stringWithFormat:@"%.f", window.safeAreaInsets.bottom];
+    XCTAssertEqualObjects(system[@"appStatusBarHeight"], statusBarHeight);
+    XCTAssertEqualObjects(system[@"bottomSafeHeight"], bottomSafeHeight);
 
     [AppAccountService.sharedInstance updateAuthenticatedUserId:@"profile-user"];
     NSDictionary *profile =

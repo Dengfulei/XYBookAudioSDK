@@ -1,5 +1,6 @@
 // 宿主回调可能跨线程、重复或迟到；统一回主线程结算一次，页面关闭后仍允许有效的身份刷新。
 #import "XYBookAudioHostActions.h"
+#import <sys/utsname.h>
 #import "XYBookAudioMessageProtocol.h"
 #import "XYBookAudioLogger.h"
 
@@ -45,6 +46,31 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
     return XYBookAudioValueFailed;
 }
 
+static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
+    UIDevice *device = UIDevice.currentDevice;
+    NSBundle *bundle = NSBundle.mainBundle;
+    UIWindow *window = presenter.viewIfLoaded.window;
+    UIStatusBarManager *statusBarManager = window.windowScene.statusBarManager;
+    CGFloat statusBarHeight = statusBarManager ? statusBarManager.statusBarFrame.size.height : 0;
+    CGFloat bottomSafeHeight = window ? window.safeAreaInsets.bottom : 0;
+    NSMutableDictionary *information = [@{
+        @"debug" : @1,
+        @"system" : device.systemVersion,
+        @"appStatusBarHeight" : [NSString stringWithFormat:@"%.f", statusBarHeight],
+        @"bottomSafeHeight" : [NSString stringWithFormat:@"%.f", bottomSafeHeight]
+    } mutableCopy];
+    struct utsname hardware;
+    if (uname(&hardware) == 0) {
+        information[@"types"] = [NSString stringWithUTF8String:hardware.machine];
+    }
+    information[@"device_token"] = device.identifierForVendor.UUIDString;
+    information[@"program_version"] = [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"]
+                                          ?: [bundle objectForInfoDictionaryKey:@"CFBundleVersion"];
+    information[@"program_name"] = [bundle objectForInfoDictionaryKey:@"CFBundleDisplayName"]
+                                       ?: [bundle objectForInfoDictionaryKey:@"CFBundleName"];
+    return [information copy];
+}
+
 @interface XYBookAudioHostActions ()
 
 @property (nonatomic, strong) XYBookAudioLogger *logger;
@@ -76,13 +102,12 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
     return @{XYBookAudioKeyIsLoggedIn : @(identity.isLoggedIn), XYBookAudioKeyUserID : identity.userId};
 }
 
-/// 系统资料和设备标识属于宿主；只校验 JSON 边界，不伪造缺失字段。
+/// 宿主可覆盖系统资料。缺省时使用当前 App 和设备的系统信息。
 - (void)getSystemInfoFrom:(UIViewController *)presenter completion:(XYBookAudioCompletion)completion {
-    if (![self.host respondsToSelector:@selector(bookAudioSystemInfoFromViewController:)]) {
-        completion(nil, XYBookAudioError(XYBookAudioUnsupported, @"Host system-info provider is unavailable."));
-        return;
-    }
-    NSDictionary *information = [self.host bookAudioSystemInfoFromViewController:presenter];
+    id<XYBookAudioHost> host = self.host;
+    NSDictionary *information = [host respondsToSelector:@selector(bookAudioSystemInfoFromViewController:)]
+                                    ? [host bookAudioSystemInfoFromViewController:presenter]
+                                    : XYBookAudioDefaultSystemInfo(presenter);
     if (![information isKindOfClass:NSDictionary.class] || !information.count ||
         ![NSJSONSerialization isValidJSONObject:information]) {
         completion(nil, XYBookAudioError(XYBookAudioHostFailed, @"Host system info must be a nonempty JSON object."));

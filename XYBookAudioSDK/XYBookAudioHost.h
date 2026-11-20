@@ -38,9 +38,9 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
 - (void)bookAudioDidReleasePlayback;
 
 @optional
-/// 为原版 xh.getUserInfo 后续的 xhGetSystemInfo 调用提供标准系统资料。
-/// device_token 必须沿用宿主自己的设备标识；SDK 不生成、替换或记录该标识。
-/// 返回可 JSON 序列化的非空字典；缺失实现或返回无效资料会产生 UNSUPPORTED/HOST_FAILED。
+/// 为 xhGetSystemInfo 提供宿主自定义的系统资料与设备标识。
+/// 缺省时 SDK 读取当前 App、设备和窗口的信息，device_token 使用系统 IDFV。
+/// 实现此方法时应返回可 JSON 序列化的非空字典，无效资料返回 HOST_FAILED。
 - (nullable NSDictionary *)bookAudioSystemInfoFromViewController:(UIViewController *)controller;
 
 /// 为 xhGetUserInfo 提供宿主标准资料字典（例如 id、info、phone），SDK 原样回传，不拼造字段。

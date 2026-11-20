@@ -1,6 +1,5 @@
 // 宿主接入适配器：管理 SDK 生命周期、事件转发及账号/分享/音频路由；不实现播放或 JS 协议。
 #import "AppBookAudioService.h"
-#import <sys/utsname.h>
 #import "../Account/AppAccountService.h"
 #import "../Account/AppLoginViewController.h"
 
@@ -148,34 +147,6 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
 }
 
 #pragma mark - 宿主能力适配
-
-/// 本地宿主使用自己的 IDFV；正式宿主在此接入已有设备标识服务，保持与账号／接口签名一致。
-- (NSDictionary *)bookAudioSystemInfoFromViewController:(UIViewController *)controller {
-    struct utsname device;
-    if (uname(&device) != 0 || !UIDevice.currentDevice.identifierForVendor) {
-        return nil;
-    }
-    NSBundle *bundle = NSBundle.mainBundle;
-    // XCTest 精简宿主不带营销版本号，使用其真实构建号；两者都没有时明确拒绝提供资料。
-    NSString *version = [bundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"]
-                            ?: [bundle objectForInfoDictionaryKey:@"CFBundleVersion"];
-    NSString *name = [bundle objectForInfoDictionaryKey:@"CFBundleDisplayName"]
-                         ?: [bundle objectForInfoDictionaryKey:@"CFBundleName"];
-    if (!version.length || !name.length) {
-        return nil;
-    }
-    return @{
-        @"types" : [NSString stringWithUTF8String:device.machine],
-        @"debug" : @1,
-        @"program_version" : version,
-        @"device_token" : UIDevice.currentDevice.identifierForVendor.UUIDString,
-        @"program_name" : name,
-        @"system" : UIDevice.currentDevice.systemVersion,
-        @"appStatusBarHeight" : [NSString
-            stringWithFormat:@"%.f", controller.view.window.windowScene.statusBarManager.statusBarFrame.size.height],
-        @"bottomSafeHeight" : [NSString stringWithFormat:@"%.f", controller.view.window.safeAreaInsets.bottom]
-    };
-}
 
 /// 每次从宿主账号模块读取当前身份并映射为 SDK 类型；不缓存副本，也不传递 token。
 - (XYBookAudioIdentity *)bookAudioUserIdentity {

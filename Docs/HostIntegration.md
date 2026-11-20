@@ -160,7 +160,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 | `bookAudioRequestLoginFrom:completion:` | 在给定控制器之上展示已有登录；回调 loggedIn/cancelled/failed。SDK 会重新读取身份。 |
 | `bookAudioShare:from:completion:` | 接收标准分享参数；accepted 表示已选择渠道，cancelled 表示取消，不承诺平台成功。 |
 | `bookAudioUserInfoUsingTicket:completion:` | 已登录时提供原始标准用户资料；useTicket=true 时由宿主刷新票据。缺失实现返回 UNSUPPORTED，不拼造账号字段。 |
-| `bookAudioSystemInfoFromViewController:` | 提供标准系统资料，device_token 沿用宿主既有标识。供宿主原生调用。 |
+| `bookAudioSystemInfoFromViewController:` | 可选。覆盖 SDK 默认系统资料，适用于宿主需要提供自己的 `device_token` 或其他定制字段的情况。 |
 | `bookAudioAcquirePlayback:` | 通过宿主已有接口让出音频控制权并在 10 秒内回调。没有其他播放器时直接 completion(nil)。无法按时完成时，宿主应撤销待处理的交接。 |
 | `bookAudioDidReleasePlayback` | SDK 释放了音频控制权，或宿主已确认让出音频但请求未能启动播放。宿主根据当前音频状态决定后续操作。 |
 
@@ -168,7 +168,9 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 其他音频业务开始前调用 `yieldPlayback`，完成后再激活自身会话。此调用保留队列与定时器，听书不会自动抢回。`Stop` 清除定时器并保存位置；`Dispose` 还释放页面、观察者和事件订阅，实例不可再用。
 
-五个基础 host 方法必须实现，用户资料和系统资料方法在协议中为 optional；宿主需要通过 SDK 查询用户资料或系统资料时可提供相应实现。不需要账号或分享时，返回游客身份、登录取消和分享不支持；没有其他播放器时，释放通知可为空实现。所有能力都通过公开协议接入。
+五个基础 host 方法必须实现，用户资料和系统资料方法在协议中为 optional。不需要账号或分享时，返回游客身份、登录取消和分享不支持；没有其他播放器时，释放通知可为空实现。所有能力都通过公开协议接入。
+
+宿主未实现系统资料方法时，`xhGetSystemInfo` 默认返回设备型号、系统版本、App 名称和版本、系统 IDFV（`device_token`）以及当前听书窗口的状态栏和底部安全区高度。默认 `debug` 沿用 Demo 的数值 `1`。SDK 省略取不到的设备和 App 字段，缺少窗口时两项高度均为字符串 `"0"`。宿主实现该方法后，有效的 JSON 字典会原样返回，无效资料返回 `HOST_FAILED`。
 
 同一 App 的播放器共享系统音频会话和锁屏控制。SDK 实例间互斥覆盖宿主交接等待期和系统媒体占用期，期间其他 SDK 实例的播放请求返回 BUSY。SDK 与宿主播放器之间由统一接入层通过宿主已有的停止及释放接口交接，其他业务开始播放前应调用 SDK 的 `yieldPlayback`。待处理的 SDK 播放请求被取消后，已发起的宿主交接会结算到收到回调或超时为止。
 
@@ -199,6 +201,6 @@ SDK 不实现购买、下载、离线、TTS、云同步、原生悬浮播放器�
 
 SDK 只链接 iOS 系统库。发行包中的 `DEPENDENCIES.txt` 列出二进制的动态链接项。
 
-SDK 无埋点上传；封面、音频和网页请求只访问配置／H5 给定资源。简化用户 ID 用于本地状态隔离；宿主提供的标准用户资料与系统资料按 H5 请求原样回传，不进入 SDK 日志或持久化。宿主与 H5 的数据收集行为由各自的隐私声明覆盖。
+SDK 无埋点上传；封面、音频和网页请求只访问配置／H5 给定资源。简化用户 ID 用于本地状态隔离。系统资料和宿主提供的标准用户资料按 H5 请求回传，不进入 SDK 日志或持久化。宿主与 H5 的数据收集行为由各自的隐私声明覆盖。
 
 `PrivacyInfo.xcprivacy` 声明无 SDK 自有收集／跟踪，并为本地定时计算声明 SystemBootTime / 35F9.1；不上传原始启动时间。依据 [Apple required reason API 文档](https://developer.apple.com/documentation/bundleresources/app-privacy-configuration/nsprivacyaccessedapitypes/nsprivacyaccessedapitype)。发布前应结合最终 H5、宿主及全部依赖完成 App 的隐私核对。
