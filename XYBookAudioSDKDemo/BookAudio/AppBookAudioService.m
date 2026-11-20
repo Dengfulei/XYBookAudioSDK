@@ -104,10 +104,6 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     return [self configureWithConfiguration:configuration error:error];
 }
 
-- (void)openFromViewController:(UIViewController *)controller completion:(void (^)(NSError *))completion {
-    [self openFromViewController:controller style:XYBookAudioOpenStylePresent completion:completion];
-}
-
 - (void)openFromViewController:(UIViewController *)controller
                          style:(XYBookAudioOpenStyle)style
                     completion:(void (^)(NSError *))completion {
@@ -121,7 +117,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     [self.SDK openFromViewController:controller style:style completion:completion];
 }
 
-- (NSDictionary *)getSnapshot {
+- (NSDictionary *)playbackSnapshot {
     NSParameterAssert(NSThread.isMainThread);
     return [self.SDK getSnapshot];
 }
@@ -136,7 +132,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     [self.SDK yieldPlayback];
 }
 
-- (void)stop {
+- (void)stopPlayback {
     NSParameterAssert(NSThread.isMainThread);
     [self.SDK stop];
 }

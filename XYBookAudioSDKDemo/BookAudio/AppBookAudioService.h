@@ -20,13 +20,12 @@ FOUNDATION_EXPORT NSString *const AppBookAudioServiceEventParametersKey;
 - (BOOL)configureWithConfiguration:(XYBookAudioConfiguration *)configuration error:(NSError **)error;
 
 /// 按需初始化并打开听书；重复打开及初始化失败均通过 completion 返回，不长期持有 controller。
-- (void)openFromViewController:(UIViewController *)controller completion:(void (^)(NSError *_Nullable error))completion;
 - (void)openFromViewController:(UIViewController *)controller
                          style:(XYBookAudioOpenStyle)style
                     completion:(void (^)(NSError *_Nullable error))completion;
 
 /// 未初始化时返回 nil；读取已有会话快照不创建播放器或页面。
-- (nullable NSDictionary *)getSnapshot;
+- (nullable NSDictionary *)playbackSnapshot;
 
 /// 账号变更通知自动触发身份刷新；也可由宿主主动调用。未初始化时不创建 SDK，下次读取最新身份。
 - (void)refreshHostIdentity;
@@ -35,7 +34,7 @@ FOUNDATION_EXPORT NSString *const AppBookAudioServiceEventParametersKey;
 - (void)yieldPlayback;
 
 /// 保存断点并停止播放，保留 SDK 实例，之后仍可打开页面继续操作。
-- (void)stop;
+- (void)stopPlayback;
 
 /// 明确结束听书服务时调用；释放会话和订阅，下次打开会重新初始化。页面退出不得调用此方法。
 /// 保留最近一次成功配置；如需重新打开，应等待已有听书容器关闭，也可在关闭后配置新入口。

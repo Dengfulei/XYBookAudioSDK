@@ -139,7 +139,7 @@
 
 - (WKWebView *)openRoot {
     XCTestExpectation *opened = [self expectationWithDescription:@"打开听书首页"];
-    [self.service openFromViewController:self.presenter completion:^(NSError *error) {
+    [self.service openFromViewController:self.presenter style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
         XCTAssertNil(error);
         [opened fulfill];
     }];
@@ -616,7 +616,7 @@
     [self waitUntil:^BOOL {
         return self.presenter.presentedViewController == nil;
     }];
-    XCTAssertNil([self.service getSnapshot]);
+    XCTAssertNil([self.service playbackSnapshot]);
     [self openRoot];
 }
 

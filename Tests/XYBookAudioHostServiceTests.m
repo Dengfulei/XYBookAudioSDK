@@ -68,7 +68,7 @@
 
 - (WKWebView *)openFrom:(UIViewController *)presenter {
     XCTestExpectation *opened = [self expectationWithDescription:@"听书页面已展示"];
-    [self.service openFromViewController:presenter completion:^(NSError *error) {
+    [self.service openFromViewController:presenter style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
         XCTAssertNil(error);
         [opened fulfill];
     }];
@@ -147,19 +147,19 @@
 }
 
 - (void)testInvalidConfigurationCanRetryAndExistingSessionRejectsReconfiguration {
-    XCTAssertNil([self.service getSnapshot]);
+    XCTAssertNil([self.service playbackSnapshot]);
     XYBookAudioConfiguration *invalid = [self.configuration copy];
     invalid.environment = @"";
     NSError *error = nil;
     XCTAssertFalse([self.service configureWithConfiguration:invalid error:&error]);
     XCTAssertEqual(error.code, XYBookAudioInvalidArgument);
-    XCTAssertNil([self.service getSnapshot]);
+    XCTAssertNil([self.service playbackSnapshot]);
     [self configure];
-    NSDictionary *snapshot = [self.service getSnapshot];
+    NSDictionary *snapshot = [self.service playbackSnapshot];
     error = nil;
     XCTAssertFalse([self.service configureWithConfiguration:self.configuration error:&error]);
     XCTAssertEqual(error.code, XYBookAudioBusy);
-    XCTAssertEqualObjects([self.service getSnapshot], snapshot);
+    XCTAssertEqualObjects([self.service playbackSnapshot], snapshot);
 }
 
 - (void)testEntryReleaseAndReopenPreserveQueueAndSingleEventStream {
@@ -174,7 +174,7 @@
         window.rootViewController = first;
         WKWebView *web = [self openFrom:first];
         [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
-        [self.service openFromViewController:first completion:^(NSError *error) {
+        [self.service openFromViewController:first style:XYBookAudioOpenStylePresent completion:^(NSError *error) {
             XCTAssertEqual(error.code, XYBookAudioBusy);
         }];
         [self closeFrom:first];
@@ -183,7 +183,7 @@
     [self waitUntil:^BOOL {
         return weakFirst == nil;
     }];
-    XCTAssertEqualObjects([self.service getSnapshot][@"bookId"], @"SNCK");
+    XCTAssertEqualObjects([self.service playbackSnapshot][@"bookId"], @"SNCK");
     WKWebView *web = [self openFrom:second];
     NSDictionary *snapshot = [self runJavaScript:@"return await call('xhSnckAudioGetState');" web:web];
     XCTAssertEqualObjects(snapshot[@"item"][@"id"], @"fixture");
@@ -202,6 +202,11 @@
     [self runJavaScript:@"return await call('xhSnckAudioSeekTo',{positionMs:2000});" web:web];
     [NSNotificationCenter.defaultCenter removeObserver:observer];
     XCTAssertEqual(events, 1u);
+
+    [self.service stopPlayback];
+    NSDictionary *stopped = [self.service playbackSnapshot];
+    XCTAssertEqualObjects(stopped[@"state"], @"stopped");
+    XCTAssertEqualObjects(stopped[@"bookId"], @"SNCK");
 }
 
 /// 从宿主协议发起登录，随后验证 SNCK 身份同步。
@@ -280,7 +285,7 @@
     WKWebView *web = [self openFrom:self.originalRoot];
     [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     [self.service shutdown];
-    XCTAssertNil([self.service getSnapshot]);
+    XCTAssertNil([self.service playbackSnapshot]);
     [self waitUntil:^BOOL {
         return self.originalRoot.presentedViewController == nil;
     }];
@@ -307,7 +312,7 @@
     [account logout];
     [NSNotificationCenter.defaultCenter removeObserver:observer];
     XCTAssertEqualObjects(identities, (@[ @"account-a", @"account-b", @"guest" ]));
-    XCTAssertNil([self.service getSnapshot]);
+    XCTAssertNil([self.service playbackSnapshot]);
 }
 
 /// 等待用户可见身份文字，验证初始化查询和事件处理，而不是通过额外查询身份掩盖页面漏更新。
