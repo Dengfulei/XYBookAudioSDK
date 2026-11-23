@@ -137,7 +137,10 @@
         NSURL *entryURL = self.entryURL.URLByResolvingSymlinksInPath;
         [self.webView loadFileURL:entryURL allowingReadAccessToURL:self.configuration.localResourceDirectory];
     } else {
-        [self.webView loadRequest:[NSURLRequest requestWithURL:self.entryURL]];
+        // 入口 HTML 决定本次加载的 JS/CSS 版本，打开和重试时跳过本地缓存。
+        NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:self.entryURL];
+        request.cachePolicy = NSURLRequestReloadIgnoringLocalCacheData;
+        [self.webView loadRequest:request];
     }
 }
 
