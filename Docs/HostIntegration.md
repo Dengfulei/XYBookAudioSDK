@@ -107,7 +107,7 @@ if (![AppBookAudioService.sharedInstance configureWithConfiguration:configuratio
 }
 ```
 
-账号模块不导入 SDK，也不发送听书专属事件。接入类监听账号变更后刷新 SDK；可见且已 Ready 的 H5 会收到 `snckUserChanged`。重开页面从 Ready 快照读取当前身份。示例 H5 已处理身份事件并即时更新身份文字，退出宿主账号时，SNCK 会话清空当前队列。
+接入类监听账号变更后刷新 SDK。登录、退出或切换账号时，SDK 停止当前播放并清空 SNCK 队列，H5 可按新身份重新下发音源。可见且已 Ready 的 H5 会收到 `snckUserChanged`，重开页面时从 Ready 快照读取当前身份和播放状态。
 
 SDK 对游客身份使用空 userId；账号模块本身使用 nil。这个转换在 `bookAudioUserIdentity` 中完成。SDK 未初始化时，账号通知不会创建播放器；首次初始化读取最新账号。当前登录页使用本地测试账号，并不代表已接入真实认证服务；正式宿主在认证成功后调用自身的身份提交入口，退出失败时不能提前发布游客状态。
 
@@ -168,7 +168,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 | `bookAudioAcquirePlayback:` | 通过宿主已有接口让出音频控制权并在 10 秒内回调。没有其他播放器时直接 completion(nil)。无法按时完成时，宿主应撤销待处理的交接。 |
 | `bookAudioDidReleasePlayback` | SDK 释放了音频控制权，或宿主已确认让出音频但请求未能启动播放。宿主根据当前音频状态决定后续操作。 |
 
-登录、分享必须结算一次；SDK 会拦截重复结果并在 180 秒后释放请求占用。账号变化时调用 `refreshHostIdentity`。每次播放／恢复也会重新读取身份。变更身份将撤销全部旧付费音源，若当前付费章正在播放会保存旧身份断点并停止；免费章可以继续，直到新 SetQueue 才切换断点归属。
+登录、分享必须结算一次，SDK 会拦截重复结果并在 180 秒后释放请求占用。账号变化时调用 `refreshHostIdentity`。SDK 会停止播放、取消定时和待处理的播放请求，并释放系统音频及锁屏控制。原生队列保留章节和原身份断点，旧付费音源会被撤销。每次播放或恢复时，SDK 都会重新读取身份。
 
 其他音频业务开始前调用 `yieldPlayback`，完成后再激活自身会话。此调用保留队列与定时器，听书不会自动抢回。`Stop` 清除定时器并保存位置；`Dispose` 还释放页面、观察者和事件订阅，实例不可再用。
 
@@ -196,6 +196,8 @@ end
 ## 后台与数据
 
 宿主 Info.plist 必须包含 `UIBackgroundModes = [audio]`。声音从 AVPlayer 输出；H5 不应同时创建自己的音频播放器。SDK 仅在播放时激活 Playback 类别。锁屏 UI 是否展示倍速、上一首、下一首由系统决定。
+
+进入后台时，SDK 会校验身份并保存断点。身份相同时继续播放。后台运行期间，宿主在账号变化后仍应在主线程调用 `refreshHostIdentity`，SDK 会同步停止播放并释放锁屏控制。
 
 断点存入 Application Support，按 hostIdentifier、environment、userId、bookId 隔离；内容只有 bookId、chapterId、positionMs。音源 URL、凭证和付费权益不落盘。恢复需 H5 再次提供可用队列，未提供位置时匹配断点。读取失败时上报存储错误，队列仍从显式位置或章节起点装载。损坏的断点会移入同目录的 `.corrupt` 文件，后续进度写入原断点位置。
 

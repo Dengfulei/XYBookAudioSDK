@@ -45,6 +45,6 @@ window.xhAppJSBridge.JSCallNative(JSON.stringify({
 
 每个文档先设置回包入口，再调用 Ready。原生向已 Ready 且可见的页面发送 `snckUserChanged`、`snckAudioStateChanged`、`snckAudioQueueChanged`、`snckAudioProgress`、`snckAudioTimerChanged` 和 `snckAudioError`。重开页面从 Ready 的快照恢复展示。关闭听书页面保留会话，`xhSnckAudioStop` 清空队列和定时。
 
-用户查询读取宿主同步后的身份。账号变化时，宿主接入层调用 `refreshHostIdentity`。分享复用宿主接口，宿主返回 `XYBookAudioShareAccepted` 对应 `DISPATCHED`，`XYBookAudioShareSucceeded` 对应 `SUCCESS`。
+用户查询读取宿主同步后的身份。登录、退出或切换账号后，宿主接入层调用 `refreshHostIdentity`，SDK 停止播放并清空队列，H5 可按新身份重新下发音源。分享复用宿主接口，宿主返回 `XYBookAudioShareAccepted` 对应 `DISPATCHED`，`XYBookAudioShareSucceeded` 对应 `SUCCESS`。
 
 iOS 只允许可信 HTTPS 窗口使用线上 Bridge。音源使用绝对 HTTP(S) 地址，HTTP 是否可播放取决于宿主 App 的网络安全配置。解码后的请求最多 81920 个 UTF-16 代码单元。无法解析或缺少回调标识的请求可能没有回包，H5 应保留超时处理。

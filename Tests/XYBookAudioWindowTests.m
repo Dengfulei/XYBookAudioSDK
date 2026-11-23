@@ -709,6 +709,8 @@
     [self post:@{@"actionName" : @"xhCloseWindow"} web:child];
     XCTAssertEqual([self pageAtDepth:2], root);
     XCTAssertTrue(self.hostNavigation.isNavigationBarHidden);
+    XCTAssertEqualObjects([self script:@"return (await call('xhSnckAudioGetState')).items;" web:root], @[]);
+    [self script:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:root];
     [self post:@{@"actionName" : @"xhSnckClosePage"} web:root];
     [self waitUntil:^BOOL {
         return self.hostNavigation.topViewController == host && !self.hostNavigation.transitionCoordinator;

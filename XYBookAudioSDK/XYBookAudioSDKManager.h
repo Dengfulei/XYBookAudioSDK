@@ -50,7 +50,7 @@ typedef NS_ENUM(NSInteger, XYBookAudioOpenStyle) {
 /// 释放指定订阅；未知令牌无副作用。关闭页面只清理页面自身订阅。
 - (void)unsubscribe:(NSUUID *)subscription;
 
-/// 宿主登录、退出或切换账号后调用；撤销上一身份的受限音源，并按规则暂停付费章节。
+/// 宿主登录、退出或切换账号后调用。身份变化时停止前台或后台播放，撤销上一身份的受限音源。
 - (void)refreshHostIdentity;
 
 /// 同步暂停并移除本 SDK 的系统音频控制；宿主其他播放器应在此方法返回后再激活音频。

@@ -3,6 +3,7 @@
 #import <XYBookAudioSDK/XYBookAudioSDK.h>
 #import <WebKit/WebKit.h>
 #import <AVFoundation/AVFoundation.h>
+#import <MediaPlayer/MediaPlayer.h>
 #import "../XYBookAudioSDK/Storage/XYBookAudioCheckpointStore.h"
 
 @interface XYBookAudioCheckpointStore (TestFileAccess)
@@ -13,6 +14,7 @@
 
 @property (nonatomic, strong) XYBookAudioIdentity *identity;
 @property (nonatomic, copy) void (^pendingAcquire)(NSError *);
+@property (nonatomic, copy) void (^didReleasePlayback)(void);
 @property (nonatomic) BOOL delayAcquire;
 @property (nonatomic) NSUInteger acquisitionCount;
 @property (nonatomic) NSUInteger releaseCount;
@@ -36,6 +38,9 @@
 
 - (void)bookAudioDidReleasePlayback {
     self.releaseCount++;
+    if (self.didReleasePlayback) {
+        self.didReleasePlayback();
+    }
 }
 
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller
@@ -473,6 +478,61 @@
     XCTAssertEqual(self.host.releaseCount, 1);
 }
 
+- (void)postApplicationNotification:(NSNotificationName)name {
+    [NSNotificationCenter.defaultCenter postNotificationName:name object:UIApplication.sharedApplication];
+}
+
+- (void)testAccountChangesStopPlaybackAndReleaseSystemMedia {
+    [self command:@"SetQueue" parameters:[self queue:NO] error:nil];
+    __weak XYBookAudioSDKManager *weakSDK = self.SDK;
+    self.host.didReleasePlayback = ^{
+        NSDictionary *snapshot = [weakSDK getSnapshot];
+        XCTAssertEqualObjects(snapshot[@"state"], @"stopped");
+        XCTAssertEqualObjects(snapshot[@"sleepTimer"][@"mode"], @"off");
+    };
+    for (NSString *userId in @[ @"signed-in", @"switched", @"" ]) {
+        [self command:@"Play" parameters:@{} error:nil];
+        [self waitUntil:^BOOL(NSDictionary *snapshot) {
+            return [snapshot[@"state"] isEqual:@"playing"];
+        }];
+        [self command:@"SetSleepTimer" parameters:@{@"mode" : @"trackCount", @"count" : @2} error:nil];
+        XCTAssertNotNil(MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo);
+
+        [self postApplicationNotification:UIApplicationDidEnterBackgroundNotification];
+        XCTAssertEqualObjects([self.SDK getSnapshot][@"state"], @"playing");
+        NSUInteger releaseCount = self.host.releaseCount;
+
+        self.host.identity = [[XYBookAudioIdentity alloc] initWithUserId:userId];
+        [self.SDK refreshHostIdentity];
+        NSDictionary *snapshot = [self.SDK getSnapshot];
+        XCTAssertEqualObjects(snapshot[@"state"], @"stopped");
+        XCTAssertEqualObjects(snapshot[@"sleepTimer"][@"mode"], @"off");
+        XCTAssertNil(MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo);
+        XCTAssertEqual(self.host.releaseCount, releaseCount + 1);
+        [self postApplicationNotification:UIApplicationWillEnterForegroundNotification];
+        [self postApplicationNotification:UIApplicationDidBecomeActiveNotification];
+    }
+}
+
+- (void)testBackgroundIdentityCheckCancelsPendingPlayback {
+    [self command:@"SetQueue" parameters:[self queue:NO] error:nil];
+    self.host.delayAcquire = YES;
+    XCTestExpectation *done = [self expectationWithDescription:@"account change cancels audio handoff"];
+    [self.SDK executeAction:@"xhBookAudioPlay" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
+        XCTAssertEqual(error.code, XYBookAudioInvalidState);
+        [done fulfill];
+    }];
+    XCTAssertNotNil(self.host.pendingAcquire);
+    self.host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"signed-in"];
+    [self postApplicationNotification:UIApplicationDidEnterBackgroundNotification];
+    self.host.pendingAcquire(nil);
+    [self waitForExpectations:@[ done ] timeout:3];
+    XCTAssertEqualObjects([self.SDK getSnapshot][@"state"], @"stopped");
+    XCTAssertEqual(self.host.releaseCount, 1);
+    [self postApplicationNotification:UIApplicationWillEnterForegroundNotification];
+    [self postApplicationNotification:UIApplicationDidBecomeActiveNotification];
+}
+
 - (void)testOneSDKInstanceOwnsAudioFromHandoffThroughRelease {
     XYBookAudioTestHost *otherHost = [XYBookAudioTestHost new];
     otherHost.identity = self.host.identity;
@@ -718,15 +778,15 @@
     [navigation pushViewController:hostLogin animated:NO];
     XCTNSPredicateExpectation *loginVisible = [[XCTNSPredicateExpectation alloc]
         initWithPredicate:[NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
-            return hostLogin.viewIfLoaded.window != nil && navigation.visibleViewController == hostLogin;
+            return hostLogin.viewIfLoaded.window != nil && navigation.visibleViewController == hostLogin &&
+                   !navigation.navigationBarHidden;
         }]
                    object:nil];
     XCTAssertEqual([XCTWaiter waitForExpectations:@[ loginVisible ] timeout:4], XCTWaiterResultCompleted);
-    [navigation setNavigationBarHidden:YES animated:NO];
     [navigation popViewControllerAnimated:NO];
     XCTNSPredicateExpectation *navigationRestored = [[XCTNSPredicateExpectation alloc]
         initWithPredicate:[NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
-            return !navigation.navigationBarHidden;
+            return navigation.visibleViewController != hostLogin && navigation.navigationBarHidden;
         }]
                    object:nil];
     XCTAssertEqual([XCTWaiter waitForExpectations:@[ navigationRestored ] timeout:4], XCTWaiterResultCompleted);

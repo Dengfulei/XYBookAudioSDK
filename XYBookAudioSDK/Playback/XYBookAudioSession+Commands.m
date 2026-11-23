@@ -27,6 +27,7 @@
     if ([command isEqual:XYBookAudioCommandStop]) {
         if (self.queue.snckItems) {
             [self clearSnckQueue];
+            [self publish];
         }
         completion([self snckPlayback], nil);
         return;
@@ -224,8 +225,13 @@
 
 /// 先校验身份、音源和定时，再请求宿主让出音频；异步交接采用单次结算与代次校验。
 - (void)play:(XYBookAudioCompletion)completion {
+    NSUInteger generation = self.generation;
     if (![self refreshIdentity]) {
         completion(nil, XYBookAudioError(XYBookAudioHostFailed, @"Host identity is unavailable."));
+        return;
+    }
+    if (generation != self.generation) {
+        completion(nil, XYBookAudioError(XYBookAudioInvalidState, @"Playback request was superseded."));
         return;
     }
     if (!self.queue) {

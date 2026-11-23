@@ -239,6 +239,7 @@
     [self configure];
     UIViewController *presenter = self.originalRoot;
     WKWebView *web = [self openFrom:presenter];
+    [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     UINavigationController *navigation = (UINavigationController *)presenter.presentedViewController;
     __weak UIViewController *weakLogin;
     @autoreleasepool {
@@ -256,6 +257,7 @@
     [self waitForIdentityText:@"用户：local-user" web:web];
     XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).user.id;" web:web],
                           @"local-user");
+    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckAudioGetState')).items;" web:web], @[]);
     [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     [AppAccountService.sharedInstance logout];
     [self waitForIdentityText:@"游客" web:web];

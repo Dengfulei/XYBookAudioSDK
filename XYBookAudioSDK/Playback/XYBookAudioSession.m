@@ -90,7 +90,9 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
         [NSNotificationCenter.defaultCenter addObserverForName:UIApplicationDidEnterBackgroundNotification object:nil
                                                          queue:NSOperationQueue.mainQueue
                                                     usingBlock:^(NSNotification *note) {
-                                                        [weakSelf save];
+                                                        if ([weakSelf refreshIdentity]) {
+                                                            [weakSelf save];
+                                                        }
                                                     }];
 }
 
@@ -351,7 +353,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     }];
 }
 
-/// 身份不可用时阻止沿用旧权限；身份变化会清除受限音源，免费章的断点归属保持到新队列装载。
+/// 身份变化时停止播放并撤销旧音源权限，原生队列的断点仍归装载时的身份。
 - (BOOL)refreshIdentity {
     XYBookAudioIdentity *identity = [self.host bookAudioUserIdentity];
     // 身份读取失败时必须撤销播放，不能继续使用缓存账号为当前操作授权。
@@ -367,21 +369,19 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     if ([self.identity.userId isEqual:identity.userId]) {
         return YES;
     }
-    if (self.queue.snckItems && self.identity.isLoggedIn && !identity.isLoggedIn) {
+    self.identity = identity;
+    if (self.queue.snckItems) {
         [self clearSnckQueue];
+    } else if (self.queue) {
+        for (XYBookAudioChapter *chapter in self.queue.chapters) {
+            if (chapter.requiresLogin) {
+                chapter.audioURL = nil;
+            }
+        }
+        [self stopCurrentPlayback];
     }
     [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost
                message:@"Identity changed; previous restricted sources revoked."];
-    BOOL paid = self.chapter.requiresLogin;
-    if (paid) {
-        [self stop];
-    }
-    for (XYBookAudioChapter *chapter in self.queue.chapters) {
-        if (chapter.requiresLogin) {
-            chapter.audioURL = nil;
-        }
-    }
-    self.identity = identity;
     if (self.event) {
         self.event(XYBookAudioEventUserIdentityChanged,
                    @{XYBookAudioKeyIsLoggedIn : @(identity.isLoggedIn), XYBookAudioKeyUserID : identity.userId});
@@ -421,15 +421,19 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
 }
 
 - (void)suspendPlayback {
+    [self pauseAndSavePlayback];
+    [self releaseSystemPlayback];
+}
+
+- (void)pauseAndSavePlayback {
     self.generation++;
     self.resumeAfterInterruption = NO;
     [self.engine pause];
     [self save];
-    [self releaseSystemPlayback];
 }
 
 - (void)clearSnckQueue {
-    [self suspendPlayback];
+    [self pauseAndSavePlayback];
     [self.engine clear];
     [self.sleepTimer cancel];
     if (self.queue.snckItems) {
@@ -441,7 +445,7 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     self.stateOverride = XYBookAudioValueIdle;
     self.reason = nil;
     [self loadArtwork];
-    [self publish];
+    [self releaseSystemPlayback];
 }
 
 - (void)releaseSystemPlayback {
@@ -454,12 +458,17 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
 
 /// 保留队列但清空播放器项目与定时器；下次 Play 将从已保存位置重新装载。
 - (void)stop {
-    [self yieldPlayback];
+    [self stopCurrentPlayback];
+    [self publish];
+}
+
+- (void)stopCurrentPlayback {
+    [self pauseAndSavePlayback];
     [self.engine clear];
     [self.sleepTimer cancel];
     self.stateOverride = XYBookAudioValueStopped;
     self.reason = XYBookAudioValueStopped;
-    [self publish];
+    [self releaseSystemPlayback];
 }
 
 /// 释放定时器、播放器、系统通知和封面任务；幂等执行，不影响其他 SDK 实例的日志或订阅。
