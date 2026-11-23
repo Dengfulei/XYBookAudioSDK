@@ -102,7 +102,9 @@ FOUNDATION_EXPORT NSString *const XYBookAudioValueUnsupported;
 #pragma mark - 播放命令
 
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandSetQueue;
+FOUNDATION_EXPORT NSString *const XYBookAudioCommandGetQueue;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandPlay;
+FOUNDATION_EXPORT NSString *const XYBookAudioCommandPlayAt;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandPause;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandStop;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandSeekTo;
@@ -113,6 +115,9 @@ FOUNDATION_EXPORT NSString *const XYBookAudioCommandSetRate;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandSetSleepTimer;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandCancelSleepTimer;
 FOUNDATION_EXPORT NSString *const XYBookAudioCommandToggle;
+FOUNDATION_EXPORT NSString *const XYBookAudioCommandGetState;
+FOUNDATION_EXPORT NSString *const XYBookAudioCommandSetTimer;
+FOUNDATION_EXPORT NSString *const XYBookAudioCommandGetTimer;
 
 #pragma mark - 旧版 H5 动作
 

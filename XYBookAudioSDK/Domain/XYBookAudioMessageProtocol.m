@@ -102,7 +102,9 @@ NSString *const XYBookAudioValueUnsupported = @"unsupported";
 #pragma mark - 播放命令
 
 NSString *const XYBookAudioCommandSetQueue = @"SetQueue";
+NSString *const XYBookAudioCommandGetQueue = @"GetQueue";
 NSString *const XYBookAudioCommandPlay = @"Play";
+NSString *const XYBookAudioCommandPlayAt = @"PlayAt";
 NSString *const XYBookAudioCommandPause = @"Pause";
 NSString *const XYBookAudioCommandStop = @"Stop";
 NSString *const XYBookAudioCommandSeekTo = @"SeekTo";
@@ -113,6 +115,9 @@ NSString *const XYBookAudioCommandSetRate = @"SetRate";
 NSString *const XYBookAudioCommandSetSleepTimer = @"SetSleepTimer";
 NSString *const XYBookAudioCommandCancelSleepTimer = @"CancelSleepTimer";
 NSString *const XYBookAudioCommandToggle = @"Toggle";
+NSString *const XYBookAudioCommandGetState = @"GetState";
+NSString *const XYBookAudioCommandSetTimer = @"SetTimer";
+NSString *const XYBookAudioCommandGetTimer = @"GetTimer";
 
 #pragma mark - 旧版 H5 动作
 

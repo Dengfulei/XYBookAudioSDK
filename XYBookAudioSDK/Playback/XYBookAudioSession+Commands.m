@@ -10,17 +10,17 @@
         completion(nil, XYBookAudioError(XYBookAudioDisposed, @"The session has been disposed."));
         return;
     }
-    if ([command isEqual:@"GetState"]) {
+    if ([command isEqual:XYBookAudioCommandGetState]) {
         completion([self snckPlayback], nil);
         return;
     }
-    if ([command isEqual:@"GetQueue"]) {
+    if ([command isEqual:XYBookAudioCommandGetQueue]) {
         completion(
             @{XYBookAudioKeyItems : self.queue.snckItems ?: @[], XYBookAudioKeyQueueVersion : @(self.queueVersion)},
             nil);
         return;
     }
-    if ([command isEqual:@"GetTimer"]) {
+    if ([command isEqual:XYBookAudioCommandGetTimer]) {
         completion([self snckPlayback][XYBookAudioKeyTimer], nil);
         return;
     }
@@ -50,7 +50,8 @@
         }
         return;
     }
-    if ([command isEqual:@"SetTimer"] && [parameters[XYBookAudioKeyMode] isEqual:XYBookAudioSnckTimerModeOff]) {
+    if ([command isEqual:XYBookAudioCommandSetTimer] &&
+        [parameters[XYBookAudioKeyMode] isEqual:XYBookAudioSnckTimerModeOff]) {
         if (self.queue.snckItems) {
             [self execute:XYBookAudioCommandCancelSleepTimer parameters:@{} completion:finish];
         } else {
@@ -62,7 +63,7 @@
         finish(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"SetQueue is required before this command."));
         return;
     }
-    if ([command isEqual:@"SetTimer"]) {
+    if ([command isEqual:XYBookAudioCommandSetTimer]) {
         NSDictionary *modes = @{
             XYBookAudioSnckTimerModeAfterItems : XYBookAudioValueTrackCount,
             XYBookAudioSnckTimerModeAfterDuration : XYBookAudioValueDuration
@@ -77,7 +78,7 @@
         finish(nil, error);
         return;
     }
-    if ([command isEqual:@"PlayAt"]) {
+    if ([command isEqual:XYBookAudioCommandPlayAt]) {
         id index = parameters[XYBookAudioKeyIndex];
         if (!XYBookAudioIsNumberInRange(index, 0, self.queue.chapters.count - 1, YES)) {
             finish(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"index is outside the queue."));

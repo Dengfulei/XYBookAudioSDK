@@ -407,11 +407,11 @@ static SEL XYBookAudioH5Selector(id action) {
 }
 
 - (void)xhSnckAudioGetQueue:(NSDictionary *)request {
-    [self forwardSnckAudio:@"GetQueue" request:request];
+    [self forwardSnckAudio:XYBookAudioCommandGetQueue request:request];
 }
 
 - (void)xhSnckAudioPlayAt:(NSDictionary *)request {
-    [self forwardSnckAudio:@"PlayAt" request:request];
+    [self forwardSnckAudio:XYBookAudioCommandPlayAt request:request];
 }
 
 - (void)xhSnckAudioSeekTo:(NSDictionary *)request {
@@ -439,15 +439,15 @@ static SEL XYBookAudioH5Selector(id action) {
 }
 
 - (void)xhSnckAudioGetState:(NSDictionary *)request {
-    [self forwardSnckAudio:@"GetState" request:request];
+    [self forwardSnckAudio:XYBookAudioCommandGetState request:request];
 }
 
 - (void)xhSnckAudioSetTimer:(NSDictionary *)request {
-    [self forwardSnckAudio:@"SetTimer" request:request];
+    [self forwardSnckAudio:XYBookAudioCommandSetTimer request:request];
 }
 
 - (void)xhSnckAudioGetTimer:(NSDictionary *)request {
-    [self forwardSnckAudio:@"GetTimer" request:request];
+    [self forwardSnckAudio:XYBookAudioCommandGetTimer request:request];
 }
 
 #pragma mark - SNCK 事件
