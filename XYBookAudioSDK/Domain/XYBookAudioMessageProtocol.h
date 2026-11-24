@@ -126,8 +126,11 @@ FOUNDATION_EXPORT NSString *const XYBookAudioActionOpenWindow;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionCloseWindow;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionGoLogin;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionGetSystemInfo;
-FOUNDATION_EXPORT NSString *const XYBookAudioActionGetUserInfo;
 FOUNDATION_EXPORT NSString *const XYBookAudioActionShowShareMenu;
+
+#pragma mark - SNCK 宿主资料动作
+
+FOUNDATION_EXPORT NSString *const XYBookAudioActionSnckGetUserInfo;
 
 #pragma mark - 原生 SDK 事件
 

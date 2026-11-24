@@ -193,7 +193,7 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
         return XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed.");
     }
     if (hostError) {
-        [self.logger error:hostError component:XYBookAudioLogHost operation:XYBookAudioActionGetUserInfo];
+        [self.logger error:hostError component:XYBookAudioLogHost operation:XYBookAudioActionSnckGetUserInfo];
         return [hostError.domain isEqual:XYBookAudioErrorDomain]
                    ? hostError
                    : XYBookAudioError(XYBookAudioHostFailed, @"Host user-info request failed.");

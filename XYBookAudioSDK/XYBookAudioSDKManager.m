@@ -147,9 +147,10 @@ static NSString *const XYBookAudioCommandUnsubscribe = @"Unsubscribe";
                           XYBookAudioActionOpenWindow, XYBookAudioActionCloseWindow, XYBookAudioActionGoLogin,
                           XYBookAudioActionCanIUse
                       ] containsObject:action];
-    BOOL hostAction = XYBookAudioIsNonEmptyString(action) &&
-                      [@[ XYBookAudioActionGetSystemInfo, XYBookAudioActionGetUserInfo, XYBookAudioActionShowShareMenu ]
-                          containsObject:action];
+    BOOL hostAction =
+        XYBookAudioIsNonEmptyString(action) &&
+        [@[ XYBookAudioActionGetSystemInfo, XYBookAudioActionSnckGetUserInfo, XYBookAudioActionShowShareMenu ]
+            containsObject:action];
     BOOL playbackAction =
         command && [@[
             XYBookAudioCommandSetQueue, XYBookAudioCommandPlay, XYBookAudioCommandPause, XYBookAudioCommandStop,
@@ -186,7 +187,7 @@ static NSString *const XYBookAudioCommandUnsubscribe = @"Unsubscribe";
         [self.hostActions getSystemInfoFrom:presenter completion:completion];
         return;
     }
-    if ([action isEqual:XYBookAudioActionGetUserInfo]) {
+    if ([action isEqual:XYBookAudioActionSnckGetUserInfo]) {
         [self.hostActions getUserInfo:parameters presenter:presenter completion:completion];
         return;
     }

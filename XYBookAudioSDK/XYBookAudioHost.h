@@ -43,7 +43,7 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
 /// 实现此方法时应返回可 JSON 序列化的非空字典，无效资料返回 HOST_FAILED。
 - (nullable NSDictionary *)bookAudioSystemInfoFromViewController:(UIViewController *)controller;
 
-/// 为 xhGetUserInfo 和 xhSnckGetUserInfo 提供资料，SDK 将宿主定义的字典原样回传。
+/// 为 xhSnckGetUserInfo 提供资料，SDK 将宿主定义的字典原样回传。
 /// 已登录时调用，parameters 包含原始请求及自定义字段。宿主应校验自己使用的字段。
 /// completion 返回非空且可 JSON 序列化的字典，或明确错误。两种资料方法都实现时优先调用此方法。
 - (void)bookAudioUserInfoWithParameters:(NSDictionary<NSString *, id> *)parameters

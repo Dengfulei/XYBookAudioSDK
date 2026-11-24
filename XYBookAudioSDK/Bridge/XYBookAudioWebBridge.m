@@ -47,8 +47,7 @@ static NSArray<NSString *> *XYBookAudioLegacyUIActions(void) {
 }
 
 static BOOL XYBookAudioIsHostInfoAction(NSString *action) {
-    return [action isEqual:XYBookAudioActionGetUserInfo] || [action isEqual:XYBookAudioActionGetSystemInfo] ||
-           [action isEqual:@"xhSnckGetUserInfo"];
+    return [action isEqual:XYBookAudioActionGetSystemInfo] || [action isEqual:XYBookAudioActionSnckGetUserInfo];
 }
 
 static SEL XYBookAudioH5Selector(id action) {
@@ -286,19 +285,6 @@ static SEL XYBookAudioH5Selector(id action) {
                  completion:[self callbackForRequest:request]];
 }
 
-- (void)xhGetUserInfo:(NSDictionary *)request {
-    NSDictionary *parameters = request[XYBookAudioKeyParameters];
-    XYBookAudioCompletion reply = [self callbackForRequest:request];
-    id goLogin = parameters[XYBookAudioKeyGoLogin];
-    UIViewController *page = self.page;
-    if ([goLogin isKindOfClass:NSNumber.class] && [goLogin boolValue] &&
-        (!page || page != page.navigationController.topViewController)) {
-        reply(nil, XYBookAudioError(XYBookAudioBusy, @"Login requires the current web page."));
-        return;
-    }
-    [self.SDK executeAction:XYBookAudioActionGetUserInfo parameters:parameters completion:reply];
-}
-
 - (void)xhShowShareMenu:(NSDictionary *)request {
     UIViewController *page = self.page;
     if (!page || page != page.navigationController.topViewController) {
@@ -362,7 +348,16 @@ static SEL XYBookAudioH5Selector(id action) {
 }
 
 - (void)xhSnckGetUserInfo:(NSDictionary *)request {
-    [self xhGetUserInfo:request];
+    NSDictionary *parameters = request[XYBookAudioKeyParameters];
+    XYBookAudioCompletion reply = [self callbackForRequest:request];
+    id goLogin = parameters[XYBookAudioKeyGoLogin];
+    UIViewController *page = self.page;
+    if ([goLogin isKindOfClass:NSNumber.class] && [goLogin boolValue] &&
+        (!page || page != page.navigationController.topViewController)) {
+        reply(nil, XYBookAudioError(XYBookAudioBusy, @"Login requires the current web page."));
+        return;
+    }
+    [self.SDK executeAction:XYBookAudioActionSnckGetUserInfo parameters:parameters completion:reply];
 }
 
 - (void)xhSnckShare:(NSDictionary *)request {

@@ -45,7 +45,7 @@ window.xhAppJSBridge.JSCallNative(JSON.stringify({
 
 每个文档先设置回包入口，再调用 Ready。原生向已 Ready 且可见的页面发送 `snckUserChanged`、`snckAudioStateChanged`、`snckAudioQueueChanged`、`snckAudioProgress`、`snckAudioTimerChanged` 和 `snckAudioError`。重开页面从 Ready 的快照恢复展示。关闭听书页面保留会话，`xhSnckAudioStop` 清空队列和定时。
 
-`xhSnckGetUserInfo` 与 `xhGetUserInfo` 共用用户资料流程。游客传入 `goLogin: true` 时拉起宿主登录，登录成功后查询资料。游客未请求登录、登录取消或登录失败时回传 `{}`。`useTicket: true` 由宿主处理票据刷新，两个字段省略时均为 `false`。宿主可接收完整参数并定义回包字段。查询出错时通过 `onBookAudioError` 发送 `{code, message}`，其中 `code` 为字符串。
+游客调用 `xhSnckGetUserInfo` 并传入 `goLogin: true` 时拉起宿主登录，登录成功后查询资料。游客未请求登录、登录取消或登录失败时回传 `{}`。`useTicket: true` 由宿主处理票据刷新，两个字段省略时均为 `false`。宿主可接收完整参数并定义回包字段。查询出错时通过 `onBookAudioError` 发送 `{code, message}`，其中 `code` 为字符串。
 
 `xhSnckReady.userState` 和 `snckUserChanged` 提供听书身份状态。登录、退出或切换账号后，宿主接入层调用 `refreshHostIdentity`，SDK 停止播放并清空队列，H5 可按新身份重新下发音源。分享复用宿主接口，宿主返回 `XYBookAudioShareAccepted` 对应 `DISPATCHED`，`XYBookAudioShareSucceeded` 对应 `SUCCESS`。
 

@@ -126,8 +126,11 @@ NSString *const XYBookAudioActionOpenWindow = @"xhOpenWindow";
 NSString *const XYBookAudioActionCloseWindow = @"xhCloseWindow";
 NSString *const XYBookAudioActionGoLogin = @"xhGoLogin";
 NSString *const XYBookAudioActionGetSystemInfo = @"xhGetSystemInfo";
-NSString *const XYBookAudioActionGetUserInfo = @"xhGetUserInfo";
 NSString *const XYBookAudioActionShowShareMenu = @"xhShowShareMenu";
+
+#pragma mark - SNCK 宿主资料动作
+
+NSString *const XYBookAudioActionSnckGetUserInfo = @"xhSnckGetUserInfo";
 
 #pragma mark - 原生 SDK 事件
 

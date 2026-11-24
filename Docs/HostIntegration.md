@@ -163,7 +163,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 | `bookAudioUserIdentity` | 返回身份对象；游客用 `[[XYBookAudioIdentity alloc] initWithUserId:nil]`。不得返回 token、密码、完整用户资料。 |
 | `bookAudioRequestLoginFrom:completion:` | 在给定控制器之上展示已有登录；回调 loggedIn/cancelled/failed。SDK 会重新读取身份。 |
 | `bookAudioShare:from:completion:` | 接收标准分享参数；accepted 表示已选择渠道，cancelled 表示取消，不承诺平台成功。 |
-| `bookAudioUserInfoWithParameters:completion:` | 可选。`xhGetUserInfo` 和 `xhSnckGetUserInfo` 在已登录时调用。接收完整请求参数，宿主校验自定义参数、处理票据并定义返回字段。SDK 原样回传非空 JSON 字典。 |
+| `bookAudioUserInfoWithParameters:completion:` | 可选。`xhSnckGetUserInfo` 在已登录时调用。接收完整请求参数，宿主校验自定义参数、处理票据并定义返回字段。SDK 原样回传非空 JSON 字典。 |
 | `bookAudioUserInfoUsingTicket:completion:` | 可选。旧版资料接口，在宿主未实现完整参数方法时调用。`useTicket: true` 时由宿主刷新票据。两个资料方法均缺失时返回 `UNSUPPORTED`。 |
 | `bookAudioSystemInfoFromViewController:` | 可选。覆盖 SDK 默认系统资料，适用于宿主需要提供自己的 `device_token` 或其他定制字段的情况。 |
 | `bookAudioAcquirePlayback:` | 通过宿主已有接口让出音频控制权并在 10 秒内回调。没有其他播放器时直接 completion(nil)。无法按时完成时，宿主应撤销待处理的交接。 |

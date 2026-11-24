@@ -364,17 +364,17 @@
 
 - (void)testUndocumentedAndInternalActionsAreRejected {
     WKWebView *root = [self openRoot];
-    NSDictionary *result = [self
-        script:@"const actions = ['xhInitClientFont', 'xhGetClientSign',"
-                "  'xhBookAudioGetSnapshot', 'xhBookAudioSubscribe', 'xhBookAudioPlay', 'xhSnckReady:',"
-                "  'xhCanIUse:', 'xhGetUserInfo:', 'invalidate', 'setPage'];"
-                "const codes = {};"
-                "for (const action of actions) {"
-                "  try { await call(action); } catch (error) { codes[action] = error.code; }"
-                "}"
-                "return {actions, codes, capabilities:(await call('xhSnckReady')).capabilities};"
-           web:root];
-    XCTAssertEqual([result[@"capabilities"] count], 24u);
+    NSDictionary *result =
+        [self script:@"const actions = ['xhInitClientFont', 'xhGetClientSign',"
+                      "  'xhBookAudioGetSnapshot', 'xhBookAudioSubscribe', 'xhBookAudioPlay', 'xhSnckReady:',"
+                      "  'xhCanIUse:', 'xhGetUserInfo', 'xhGetUserInfo:', 'invalidate', 'setPage'];"
+                      "const codes = {};"
+                      "for (const action of actions) {"
+                      "  try { await call(action); } catch (error) { codes[action] = error.code; }"
+                      "}"
+                      "return {actions, codes, capabilities:(await call('xhSnckReady')).capabilities};"
+                 web:root];
+    XCTAssertEqual([result[@"capabilities"] count], 23u);
     for (NSString *action in result[@"actions"]) {
         XCTAssertEqualObjects(result[@"codes"][action], @(-3), @"%@", action);
         XCTAssertFalse([result[@"capabilities"] containsObject:action]);
@@ -384,15 +384,17 @@
 
 - (void)testLegacyWindowLoginAndCapabilityActions {
     WKWebView *root = [self openRoot];
-    NSDictionary *result = [self
-        script:@"const actions = ['xhOpenWindow', 'xhCloseWindow', 'xhGoLogin', 'xhCanIUse', 'xhShowShareMenu',"
-                "  'xhGetUserInfo', 'xhGetSystemInfo'];"
-                "const names = [...actions, 'xhSnckReady', 'xhGetClientSign', 'xhCanIUse:', 'setPage'];"
-                "const checks = await Promise.all(names.map(name => call('xhCanIUse', {name})));"
-                "const {capabilities} = await call('xhSnckReady');"
-                "return {checks, listed:actions.every(action => capabilities.includes(action))};"
-           web:root];
-    XCTAssertEqualObjects([result[@"checks"] valueForKey:@"data"], (@[ @1, @1, @1, @1, @1, @1, @1, @1, @0, @0, @0 ]));
+    NSDictionary *result =
+        [self script:@"const actions = ['xhOpenWindow', 'xhCloseWindow', 'xhGoLogin', 'xhCanIUse', 'xhShowShareMenu',"
+                      "  'xhGetSystemInfo', 'xhSnckGetUserInfo'];"
+                      "const names = [...actions, 'xhSnckReady', 'xhGetUserInfo',"
+                      "  'xhGetClientSign', 'xhCanIUse:', 'setPage'];"
+                      "const checks = await Promise.all(names.map(name => call('xhCanIUse', {name})));"
+                      "const {capabilities} = await call('xhSnckReady');"
+                      "return {checks, listed:actions.every(action => capabilities.includes(action))};"
+                 web:root];
+    XCTAssertEqualObjects([result[@"checks"] valueForKey:@"data"],
+                          (@[ @1, @1, @1, @1, @1, @1, @1, @1, @0, @0, @0, @0 ]));
     XCTAssertEqualObjects(result[@"listed"], @YES);
     [self post:@{@"actionName" : @"xhOpenWindow", @"parameters" : @{@"url" : self.childURL.absoluteString}} web:root];
     WKWebView *child = [self pageAtDepth:2];
@@ -407,10 +409,10 @@
     XCTAssertEqual([self pageAtDepth:1], root);
 }
 
-- (void)testLegacyInfoReturnsRawHostDataAndTicketErrorEvent {
+- (void)testSystemInfoAndSnckUserInfoReturnRawDataAndTicketErrorEvent {
     WKWebView *web = [self openRoot];
-    NSDictionary *guest =
-        [self script:@"return await call('xhGetUserInfo', {goLogin:false, useTicket:false});" web:web];
+    NSDictionary *guest = [self script:@"return await call('xhSnckGetUserInfo', {goLogin:false, useTicket:false});"
+                                   web:web];
     XCTAssertEqualObjects(guest, @{});
     NSDictionary *system = [self script:@"return await call('xhGetSystemInfo');" web:web];
     XCTAssertEqualObjects(system[@"device_token"], UIDevice.currentDevice.identifierForVendor.UUIDString);
@@ -430,28 +432,24 @@
     XCTAssertEqualObjects(system[@"bottomSafeHeight"], bottomSafeHeight);
 
     [AppAccountService.sharedInstance updateAuthenticatedUserId:@"profile-user"];
-    NSDictionary *profile =
-        [self script:@"return await call('xhGetUserInfo', {goLogin:false, useTicket:false});" web:web];
+    NSDictionary *profile = [self script:@"return await call('xhSnckGetUserInfo', {goLogin:false, useTicket:false});"
+                                     web:web];
     XCTAssertEqualObjects(profile, (@{@"id" : @"profile-user", @"info" : @{@"id" : @"profile-user"}}));
 
-    for (NSString *action in @[ @"xhGetUserInfo", @"xhSnckGetUserInfo" ]) {
-        NSString *script = [NSString
-            stringWithFormat:
-                @"return await new Promise(resolve => {"
-                 "  const receive = window.xhWebJSBridge.nativeCallJS;"
-                 "  window.xhWebJSBridge.nativeCallJS = message => {"
-                 "    if (message.actionName === 'onBookAudioError' || message.actionName === 'ticket-reply') {"
-                 "      window.xhWebJSBridge.nativeCallJS = receive;"
-                 "      resolve(message.actionName === 'onBookAudioError' ? message.parameters : {});"
-                 "    } else receive(message);"
-                 "  };"
-                 "  window.xhAppJSBridge.JSCallNative(JSON.stringify({actionName:'%@',"
-                 "    parameters:{useTicket:true}, callbackActionName:'ticket-reply'}));"
-                 "});",
-                action];
-        NSDictionary *failure = [self script:script web:web];
-        XCTAssertEqualObjects(failure[@"code"], @"UNSUPPORTED", @"%@", action);
-    }
+    NSDictionary *failure =
+        [self script:@"return await new Promise(resolve => {"
+                      "  const receive = window.xhWebJSBridge.nativeCallJS;"
+                      "  window.xhWebJSBridge.nativeCallJS = message => {"
+                      "    if (message.actionName === 'onBookAudioError' || message.actionName === 'ticket-reply') {"
+                      "      window.xhWebJSBridge.nativeCallJS = receive;"
+                      "      resolve(message.actionName === 'onBookAudioError' ? message.parameters : {});"
+                      "    } else receive(message);"
+                      "  };"
+                      "  window.xhAppJSBridge.JSCallNative(JSON.stringify({actionName:'xhSnckGetUserInfo',"
+                      "    parameters:{useTicket:true}, callbackActionName:'ticket-reply'}));"
+                      "});"
+                 web:web];
+    XCTAssertEqualObjects(failure[@"code"], @"UNSUPPORTED");
 }
 
 - (void)testLegacyShareOnlyRepliesWhenAccepted {

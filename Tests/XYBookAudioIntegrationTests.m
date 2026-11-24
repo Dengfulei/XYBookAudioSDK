@@ -212,6 +212,29 @@
     XCTAssertEqualObjects([self.SDK getSnapshot], snapshot);
 }
 
+- (void)testNativeUserInfoUsesSnckAction {
+    self.host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"test-user"];
+    XCTestExpectation *rejected = [self expectationWithDescription:@"reject removed user-info action"];
+    [self.SDK executeAction:@"xhGetUserInfo" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
+        XCTAssertNil(result);
+        XCTAssertEqualObjects(error.domain, XYBookAudioErrorDomain);
+        XCTAssertEqual(error.code, XYBookAudioUnsupported);
+        [rejected fulfill];
+    }];
+    XCTAssertNil(self.host.userInfoParameters);
+
+    NSDictionary *parameters = @{@"useTicket" : @YES};
+    XCTestExpectation *queried = [self expectationWithDescription:@"query host profile"];
+    [self.SDK executeAction:@"xhSnckGetUserInfo" parameters:parameters
+                 completion:^(NSDictionary *result, NSError *error) {
+                     XCTAssertNil(error);
+                     XCTAssertEqualObjects(result[@"memberId"], @"test-user");
+                     XCTAssertEqualObjects(self.host.userInfoParameters, parameters);
+                     [queried fulfill];
+                 }];
+    [self waitForExpectations:@[ rejected, queried ] timeout:2];
+}
+
 - (void)testNativeSystemInfoProvidesDefaultsBeforeOpening {
     XCTestExpectation *done = [self expectationWithDescription:@"没有听书窗口时返回默认系统资料"];
     [self.SDK executeAction:@"xhGetSystemInfo" parameters:@{} completion:^(NSDictionary *result, NSError *error) {
