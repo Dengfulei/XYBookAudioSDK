@@ -16,7 +16,7 @@ FOUNDATION_EXPORT NSString *const XYBookAudioLogStorage;
 /// 复制级别和回调，避免外部配置变更串扰运行中的实例；由主线程中的 SDK 对象共享。
 - (instancetype)initWithConfiguration:(XYBookAudioConfiguration *)configuration;
 
-/// 仅允许传入固定文案、已实现的动作／已知状态和数值；禁止原始 URL、用户标识及协议字典。
+/// 传入固定文案、已实现的动作、已知状态或数值。Bridge 请求诊断可在宿主显式开启后传入原文。
 - (void)write:(XYBookAudioLogLevel)level component:(NSString *)component message:(NSString *)message;
 
 /// 仅输出可信错误域和数值错误码；不展开 localizedDescription、userInfo 或宿主自定义错误域。

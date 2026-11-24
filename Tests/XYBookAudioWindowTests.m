@@ -578,8 +578,20 @@
     [self waitForExpectations:@[ removed ] timeout:5];
 }
 
-/// 从原项目的 EasyJS 线格式进入原生，验证两次 URI 解码和回调中的特殊字符不丢失。
+/// 验证 EasyJS 两次 URI 解码后，回调和显式开启的请求日志都保留特殊字符。
 - (void)testReferenceEasyJSFrameRoundTripsSpecialCharacters {
+    [self.service shutdown];
+    XYBookAudioConfiguration *configuration =
+        [[XYBookAudioConfiguration alloc] initWithHostIdentifier:NSUUID.UUID.UUIDString entryURL:self.entryURL];
+    configuration.logLevel = XYBookAudioLogLevelDebug;
+    configuration.bridgeRequestPayloadLoggingEnabled = YES;
+    NSMutableArray<NSString *> *bridgeDebugLogs = [NSMutableArray array];
+    configuration.logHandler = ^(XYBookAudioLogLevel level, NSString *component, NSString *message) {
+        if (level == XYBookAudioLogLevelDebug && [component isEqualToString:@"Bridge"]) {
+            [bridgeDebugLogs addObject:message];
+        }
+    };
+    XCTAssertTrue([self.service configureWithConfiguration:configuration error:nil]);
     WKWebView *web = [self openRoot];
     NSString *title = @"中文:100%:%3A:%25 + \"引号\" \\ 换行\n\u2028\u2029 🎧";
     XCTestExpectation *done = [self expectationWithDescription:@"EasyJS 编码消息往返"];
@@ -593,13 +605,15 @@
          "if(message.actionName==='easyjs-roundtrip'){"
          "window.xhWebJSBridge.nativeCallJS=previous;resolve(message);}else{previous(message);}};"
          "window.webkit.messageHandlers.xhAppJSBridge.postMessage(frame);});"
-         "return {available,reply};";
+         "return {available,reply,request};";
     [web callAsyncJavaScript:script arguments:@{@"title" : title} inFrame:nil inContentWorld:WKContentWorld.pageWorld
            completionHandler:^(NSDictionary *result, NSError *error) {
                XCTAssertNil(error);
                XCTAssertEqualObjects(result[@"available"], @YES);
                XCTAssertEqualObjects(result[@"reply"][@"actionName"], @"easyjs-roundtrip");
                XCTAssertEqualObjects(result[@"reply"][@"parameters"][@"item"][@"title"], title);
+               NSString *expectedLog = [NSString stringWithFormat:@"JSCallNative object: %@", result[@"request"]];
+               XCTAssertTrue([bridgeDebugLogs containsObject:expectedLog]);
                [done fulfill];
            }];
     [self waitForExpectations:@[ done ] timeout:8];

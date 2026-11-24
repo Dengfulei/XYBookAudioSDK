@@ -161,6 +161,10 @@ static SEL XYBookAudioH5Selector(id action) {
         [self reportInvalidRequest:@"JSCallNative JSON exceeds the message length limit."];
         return;
     }
+    if (self.configuration.bridgeRequestPayloadLoggingEnabled) {
+        [self.logger write:XYBookAudioLogLevelDebug component:XYBookAudioLogBridge
+                   message:[@"JSCallNative object: " stringByAppendingString:object]];
+    }
     id message = [NSJSONSerialization JSONObjectWithData:[object dataUsingEncoding:NSUTF8StringEncoding] options:0
                                                    error:nil];
     if (![message isKindOfClass:NSDictionary.class]) {

@@ -48,7 +48,7 @@ typedef NS_ENUM(NSInteger, XYBookAudioLogLevel) {
     XYBookAudioLogLevelDebug
 };
 
-/// 日志在主线程同步回调；消息已脱敏。回调应快速返回，避免强引用 SDK 或重入业务接口。
+/// 日志在主线程同步回调，默认脱敏。回调应快速返回，避免强引用 SDK 或重入业务接口。
 typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *component, NSString *message);
 
 @interface XYBookAudioConfiguration : NSObject <NSCopying>
@@ -63,6 +63,9 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 /// 可选输出回调；设置后替代默认 NSLog。Off 时既不回调，也不输出控制台日志。
 /// 此开关仅控制 SDK 自身日志，不能关闭系统 WebKit、AVFoundation 或宿主日志。
 @property (nonatomic, copy, nullable) XYBookAudioLogHandler logHandler;
+
+/// 默认 NO。设为 YES 并启用 Debug 日志时，输出 H5 调用 JSCallNative: 的请求原文，可能包含敏感数据。
+@property (nonatomic) BOOL bridgeRequestPayloadLoggingEnabled;
 
 /// 默认 NO；宿主可在联调时启用 iOS 16.4 及以上内置 WebView 的 Safari 检查。
 @property (nonatomic) BOOL webInspectorEnabled;

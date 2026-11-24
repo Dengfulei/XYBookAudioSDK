@@ -71,6 +71,7 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
     copy.environment = self.environment;
     copy.logLevel = self.logLevel;
     copy.logHandler = self.logHandler;
+    copy.bridgeRequestPayloadLoggingEnabled = self.bridgeRequestPayloadLoggingEnabled;
     copy.webInspectorEnabled = self.webInspectorEnabled;
     copy.trustedOrigins = self.trustedOrigins;
     copy.allowedPathPrefixes = self.allowedPathPrefixes;

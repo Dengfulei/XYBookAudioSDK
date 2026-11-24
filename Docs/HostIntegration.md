@@ -152,7 +152,9 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 日志回调在主线程同步执行，应快速返回；异步写文件或上传由宿主自己的日志组件处理。回调不要强引用 SDK，避免形成持有环；不要从日志回调中触发业务动作。SDK 会阻止递归日志回调，但不会阻止回调里自行发起的业务操作。
 
-日志覆盖页面加载与失败、可信来源拒绝、JS 传输错误、命令接收／回执、播放状态、宿主登录／分享／音频交接、定时结束和断点错误。周期进度不会逐秒打印。日志不输出用户标识、完整请求／快照、音源或页面 URL、token、错误 userInfo 或原始错误描述；未知的宿主错误域统一标记为 `ExternalError`，原始业务错误仍照常返回调用方。
+日志覆盖页面加载与失败、可信来源拒绝、JS 传输错误、命令接收／回执、播放状态、宿主登录／分享／音频交接、定时结束和断点错误。周期进度不会逐秒打印。默认日志不输出用户标识、完整请求／快照、音源或页面 URL、token、错误 userInfo 或原始错误描述；未知的宿主错误域统一标记为 `ExternalError`，原始业务错误仍照常返回调用方。
+
+联调时可以在初始化 SDK 前同时设置 `configuration.logLevel = XYBookAudioLogLevelDebug` 和 `configuration.bridgeRequestPayloadLoggingEnabled = YES`。在控制台或 `logHandler` 中搜索 `JSCallNative object:` 即可查看通过来源和长度校验的 H5 请求原文。该选项默认关闭，原文可能包含 URL、token 等敏感数据。
 
 此配置只控制 **XYBookAudioSDK 自己的日志**。iOS 的 WebKit／AVFoundation 系统输出和宿主日志不受此开关控制。关闭日志不会隐藏加载失败界面、错误事件或 completion 错误。SDK 不写日志文件、不上传日志。
 
