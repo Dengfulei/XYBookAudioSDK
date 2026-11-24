@@ -289,6 +289,13 @@ static NSString *const XYBookAudioCommandUnsubscribe = @"Unsubscribe";
     }
 }
 
+- (void)notifyLoginSuccess {
+    NSParameterAssert(NSThread.isMainThread);
+    if (!self.disposed) {
+        [self.hostActions notifyLoginSuccess];
+    }
+}
+
 - (void)yieldPlayback {
     NSParameterAssert(NSThread.isMainThread);
     if (!self.disposed) {

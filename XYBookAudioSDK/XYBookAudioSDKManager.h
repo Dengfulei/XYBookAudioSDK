@@ -53,6 +53,10 @@ typedef NS_ENUM(NSInteger, XYBookAudioOpenStyle) {
 /// 宿主登录、退出或切换账号后调用。身份变化时停止前台或后台播放，撤销上一身份的受限音源。
 - (void)refreshHostIdentity;
 
+/// 无 completion 接入的宿主在登录成功且 bookAudioUserIdentity 可读取已登录身份后，于主线程调用。
+/// 刷新 SDK 身份并继续等待中的登录请求。身份仍为游客时继续等待，重复通知只结算一次。
+- (void)notifyLoginSuccess;
+
 /// 同步暂停并移除本 SDK 的系统音频控制；宿主其他播放器应在此方法返回后再激活音频。
 - (void)yieldPlayback;
 

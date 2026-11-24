@@ -7,7 +7,7 @@ NSNotificationName const AppBookAudioServiceEventNotification = @"AppBookAudioSe
 NSString *const AppBookAudioServiceEventNameKey = @"event";
 NSString *const AppBookAudioServiceEventParametersKey = @"parameters";
 
-/// 宿主登录模块不依赖 SDK 枚举，协议类型转换集中在接入边界。
+/* 带 completion 的宿主接入示例使用以下结果映射。
 static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult result) {
     switch (result) {
         case AppLoginSucceeded:
@@ -18,6 +18,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
             return XYBookAudioLoginFailed;
     }
 }
+*/
 
 @interface AppBookAudioService () <XYBookAudioHost>
 @property (nonatomic, strong, nullable) XYBookAudioSDKManager *SDK;
@@ -50,9 +51,14 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     [NSNotificationCenter.defaultCenter removeObserver:self];
 }
 
-/// 宿主已提交新的身份后才发出通知；刷新 SDK 权限与 H5，账号模块本身无需知道听书业务。
+/// 账号模块先提交身份再发通知，接入层用已保存的账号继续等待中的登录。
 - (void)accountDidChange:(NSNotification *)notification {
-    [self refreshHostIdentity];
+    AppAccountService *account = notification.object;
+    if (account.userId.length) {
+        [self.SDK notifyLoginSuccess];
+    } else {
+        [self refreshHostIdentity];
+    }
 }
 
 - (BOOL)configureWithConfiguration:(XYBookAudioConfiguration *)configuration error:(NSError **)error {
@@ -167,7 +173,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     completion(@{@"id" : userId, @"info" : @{@"id" : userId}}, nil);
 }
 
-/// 在 SDK 回调提供的导航栈中 push 登录；仅弱引用展示控制器，避免会话持有业务页面。
+/* 带 completion 的宿主接入示例。
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller
                        completion:(void (^)(XYBookAudioLoginResult, NSError *))completion {
     UINavigationController *navigation = controller.navigationController;
@@ -189,6 +195,17 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
         completion(AppBookAudioLoginResultFromHost(result), nil);
     }];
     weakLogin = login;
+    [navigation pushViewController:login animated:YES];
+}
+*/
+
+/// 在 SDK 提供的导航栈中 push 宿主登录页。登录结果由账号变更通知处理。
+- (void)bookAudioRequestLoginFrom:(UIViewController *)controller {
+    UINavigationController *navigation = controller.navigationController;
+    if (!navigation || navigation.topViewController != controller || controller.presentedViewController) {
+        return;
+    }
+    AppLoginViewController *login = [[AppLoginViewController alloc] initWithCompletion:nil];
     [navigation pushViewController:login animated:YES];
 }
 

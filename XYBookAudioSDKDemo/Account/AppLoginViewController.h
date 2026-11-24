@@ -11,8 +11,8 @@ typedef NS_ENUM(NSInteger, AppLoginResult) {
 
 @interface AppLoginViewController : UIViewController
 
-/// 用于 push 登录；按钮操作、返回和外部关闭均只回调一次，成功不代表付费权益已授权。
-- (instancetype)initWithCompletion:(void (^)(AppLoginResult result))completion;
+/// 用于 push 登录。传入 completion 时只回调一次。传 nil 时，按钮操作由登录页自行返回。
+- (instancetype)initWithCompletion:(nullable void (^)(AppLoginResult result))completion;
 
 @end
 

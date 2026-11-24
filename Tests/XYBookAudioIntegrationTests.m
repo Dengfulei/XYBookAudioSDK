@@ -20,6 +20,7 @@
 @property (nonatomic) BOOL delayAcquire;
 @property (nonatomic) NSUInteger acquisitionCount;
 @property (nonatomic) NSUInteger releaseCount;
+@property (nonatomic) NSUInteger userInfoRequestCount;
 
 @end
 
@@ -45,13 +46,6 @@
     }
 }
 
-- (void)bookAudioRequestLoginFrom:(UIViewController *)controller
-                       completion:(void (^)(XYBookAudioLoginResult, NSError *))completion {
-    self.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"test-user"];
-    completion(XYBookAudioLoginLoggedIn, nil);
-    completion(XYBookAudioLoginFailed, nil);
-}
-
 /// 测试宿主返回自己的资料格式，验证桥接不会将其裁剪为简化身份或添加包装。
 - (void)bookAudioUserInfoUsingTicket:(BOOL)usingTicket completion:(void (^)(NSDictionary *, NSError *))completion {
     completion(@{@"id" : self.identity.userId, @"info" : @{@"id" : self.identity.userId, @"name" : @"测试用户"}}, nil);
@@ -59,6 +53,7 @@
 
 - (void)bookAudioUserInfoWithParameters:(NSDictionary<NSString *, id> *)parameters
                              completion:(void (^)(NSDictionary *, NSError *))completion {
+    self.userInfoRequestCount++;
     self.userInfoParameters = parameters;
     completion(@{@"memberId" : self.identity.userId, @"profile" : @{@"displayName" : @"测试用户"}}, nil);
 }
@@ -68,6 +63,45 @@
             completion:(void (^)(XYBookAudioShareResult, NSError *))completion {
     self.shareRequest = request;
     completion(XYBookAudioShareAccepted, nil);
+}
+
+@end
+
+@interface XYBookAudioCompletionLoginTestHost : XYBookAudioTestHost
+@end
+
+@implementation XYBookAudioCompletionLoginTestHost
+
+- (void)bookAudioRequestLoginFrom:(UIViewController *)controller
+                       completion:(void (^)(XYBookAudioLoginResult, NSError *))completion {
+    self.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"test-user"];
+    completion(XYBookAudioLoginLoggedIn, nil);
+    completion(XYBookAudioLoginFailed, nil);
+}
+
+@end
+
+@interface XYBookAudioNotificationLoginTestHost : XYBookAudioTestHost
+@property (nonatomic) NSUInteger loginRequestCount;
+@end
+
+@implementation XYBookAudioNotificationLoginTestHost
+
+- (void)bookAudioRequestLoginFrom:(UIViewController *)controller {
+    self.loginRequestCount++;
+}
+
+@end
+
+@interface XYBookAudioDualLoginTestHost : XYBookAudioNotificationLoginTestHost
+@property (nonatomic, copy) void (^loginCompletion)(XYBookAudioLoginResult, NSError *);
+@end
+
+@implementation XYBookAudioDualLoginTestHost
+
+- (void)bookAudioRequestLoginFrom:(UIViewController *)controller
+                       completion:(void (^)(XYBookAudioLoginResult, NSError *))completion {
+    self.loginCompletion = completion;
 }
 
 @end
@@ -96,7 +130,7 @@
 
 - (void)setUp {
     [super setUp];
-    self.host = [XYBookAudioTestHost new];
+    self.host = [XYBookAudioCompletionLoginTestHost new];
     self.host.identity = [[XYBookAudioIdentity alloc] initWithUserId:nil];
     NSURL *entry = [[NSBundle bundleForClass:self.class] URLForResource:@"index" withExtension:@"html"
                                                            subdirectory:@"Fixture"];
@@ -753,7 +787,7 @@
     return result == XCTWaiterResultCompleted;
 }
 
-- (void)testSnckUserInfoLogsInAndReturnsHostDefinedProfile {
+- (WKWebView *)openUserInfoTestPage {
     UIViewController *presenter = UIApplication.sharedApplication.delegate.window.rootViewController;
     XCTestExpectation *opened = [self expectationWithDescription:@"open"];
     [self.SDK openFromViewController:presenter completion:^(NSError *error) {
@@ -763,33 +797,178 @@
     [self waitForExpectations:@[ opened ] timeout:5];
     WKWebView *web = [self findWebView:presenter.presentedViewController.view];
     XCTAssertNotNil(web);
-    if (![self waitForFixturePage:web]) {
-        return;
-    }
+    return web && [self waitForFixturePage:web] ? web : nil;
+}
 
-    NSDictionary *parameters =
-        @{@"goLogin" : @YES, @"useTicket" : @YES, @"options" : @{@"fields" : @[ @"displayName" ]}};
-    XCTestExpectation *queried = [self expectationWithDescription:@"query host profile"];
-    [web callAsyncJavaScript:@"const guest = await call('xhSnckGetUserInfo');"
-                              "const profile = await call('xhSnckGetUserInfo', request);"
-                              "return {guest, profile};"
-                   arguments:@{@"request" : parameters}
-                     inFrame:nil
-              inContentWorld:WKContentWorld.pageWorld completionHandler:^(NSDictionary *result, NSError *error) {
-                  XCTAssertNil(error);
-                  XCTAssertEqualObjects(result[@"guest"], @{});
-                  XCTAssertEqualObjects(result[@"profile"],
-                                        (@{@"memberId" : @"test-user",
-                                           @"profile" : @{@"displayName" : @"测试用户"}}));
-                  XCTAssertEqualObjects(self.host.userInfoParameters, parameters);
-                  [queried fulfill];
-              }];
-    [self waitForExpectations:@[ queried ] timeout:8];
+- (void)closeUserInfoTestPage {
+    UIViewController *presenter = UIApplication.sharedApplication.delegate.window.rootViewController;
     XCTestExpectation *closed = [self expectationWithDescription:@"close"];
     [presenter dismissViewControllerAnimated:NO completion:^{
         [closed fulfill];
     }];
     [self waitForExpectations:@[ closed ] timeout:3];
+}
+
+- (void)useUserInfoTestHost:(XYBookAudioTestHost *)host {
+    [self.SDK dispose];
+    host.identity = self.host.identity;
+    self.host = host;
+    NSError *error = nil;
+    self.SDK = [[XYBookAudioSDKManager alloc] initWithConfiguration:self.configuration host:host error:&error];
+    XCTAssertNil(error);
+}
+
+- (id)runUserInfoScript:(NSString *)script arguments:(NSDictionary *)arguments web:(WKWebView *)web {
+    XCTestExpectation *evaluated = [self expectationWithDescription:@"evaluate user-info bridge script"];
+    __block id value;
+    [web callAsyncJavaScript:script arguments:arguments inFrame:nil inContentWorld:WKContentWorld.pageWorld
+           completionHandler:^(id result, NSError *error) {
+               XCTAssertNil(error);
+               value = result;
+               [evaluated fulfill];
+           }];
+    [self waitForExpectations:@[ evaluated ] timeout:8];
+    return value;
+}
+
+- (void)testSnckUserInfoLogsInAndReturnsHostDefinedProfile {
+    WKWebView *web = [self openUserInfoTestPage];
+    if (!web) {
+        return;
+    }
+
+    NSDictionary *parameters =
+        @{@"goLogin" : @YES, @"useTicket" : @YES, @"options" : @{@"fields" : @[ @"displayName" ]}};
+    NSDictionary *result = [self runUserInfoScript:@"const guest = await call('xhSnckGetUserInfo');"
+                                                    "const profile = await call('xhSnckGetUserInfo', request);"
+                                                    "return {guest, profile};"
+                                         arguments:@{@"request" : parameters}
+                                               web:web];
+    XCTAssertEqualObjects(result[@"guest"], @{});
+    XCTAssertEqualObjects(result[@"profile"],
+                          (@{@"memberId" : @"test-user", @"profile" : @{@"displayName" : @"测试用户"}}));
+    XCTAssertEqualObjects(self.host.userInfoParameters, parameters);
+    XCTAssertEqual(self.host.userInfoRequestCount, 1);
+    [self closeUserInfoTestPage];
+}
+
+- (void)testSnckUserInfoWaitsForSavedLoginNotificationAndRepliesOnce {
+    XYBookAudioNotificationLoginTestHost *host = [XYBookAudioNotificationLoginTestHost new];
+    [self useUserInfoTestHost:host];
+    WKWebView *web = [self openUserInfoTestPage];
+    if (!web) {
+        return;
+    }
+
+    NSDictionary *parameters = @{@"goLogin" : @YES, @"useTicket" : @YES, @"scope" : @"book-audio"};
+    [self runUserInfoScript:@"window.loginReplies = [];"
+                             "const receive = window.xhWebJSBridge.nativeCallJS;"
+                             "window.loginReply = new Promise(resolve => {"
+                             "  window.xhWebJSBridge.nativeCallJS = message => {"
+                             "    if (['login-profile', 'onBookAudioError'].includes(message.actionName)) {"
+                             "      loginReplies.push(message); resolve();"
+                             "    } else receive(message);"
+                             "  };"
+                             "});"
+                             "window.xhAppJSBridge.JSCallNative(JSON.stringify({actionName:'xhSnckGetUserInfo',"
+                             "  parameters:request, callbackActionName:'login-profile'}));"
+                             "await call('xhGetSystemInfo');"
+                  arguments:@{@"request" : parameters}
+                        web:web];
+    XCTAssertEqual(host.loginRequestCount, 1);
+
+    [self.SDK notifyLoginSuccess];
+    NSArray *earlyReplies = [self runUserInfoScript:@"await call('xhGetSystemInfo'); return loginReplies;" arguments:@{}
+                                                web:web];
+    XCTAssertEqualObjects(earlyReplies, @[]);
+    XCTAssertEqual(host.userInfoRequestCount, 0);
+
+    host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"notification-user"];
+    [self.SDK notifyLoginSuccess];
+    [self.SDK notifyLoginSuccess];
+    NSDictionary *result = [self runUserInfoScript:@"await loginReply;"
+                                                    "const ready = await call('xhSnckReady');"
+                                                    "return {replies: loginReplies, user: ready.userState.user};"
+                                         arguments:@{}
+                                               web:web];
+    XCTAssertEqualObjects(
+        result[@"replies"], (@[ @{
+            @"actionName" : @"login-profile",
+            @"parameters" : @{@"memberId" : @"notification-user", @"profile" : @{@"displayName" : @"测试用户"}}
+        } ]));
+    XCTAssertEqualObjects(result[@"user"][@"id"], @"notification-user");
+    XCTAssertEqualObjects(host.userInfoParameters, parameters);
+    XCTAssertEqual(host.userInfoRequestCount, 1);
+    [self closeUserInfoTestPage];
+}
+
+- (void)testSnckUserInfoPrefersCompletionAndPreservesCancelledAndFailedResults {
+    XYBookAudioDualLoginTestHost *host = [XYBookAudioDualLoginTestHost new];
+    [self useUserInfoTestHost:host];
+    WKWebView *web = [self openUserInfoTestPage];
+    if (!web) {
+        return;
+    }
+
+    for (NSNumber *outcome in @[ @(XYBookAudioLoginCancelled), @(XYBookAudioLoginFailed) ]) {
+        XCTestExpectation *settled = [self expectationWithDescription:@"complete host login"];
+        settled.assertForOverFulfill = YES;
+        [self.SDK executeAction:@"xhSnckGetUserInfo" parameters:@{@"goLogin" : @YES}
+                     completion:^(NSDictionary *result, NSError *error) {
+                         XCTAssertNil(error);
+                         XCTAssertEqualObjects(result, @{});
+                         [settled fulfill];
+                     }];
+        XCTAssertNotNil(host.loginCompletion);
+        XCTAssertEqual(host.loginRequestCount, 0);
+        if (!host.loginCompletion) {
+            break;
+        }
+        if (outcome.integerValue == XYBookAudioLoginCancelled) {
+            host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"saved-user"];
+            [self.SDK notifyLoginSuccess];
+            [self runUserInfoScript:@"return await call('xhGetSystemInfo');" arguments:@{} web:web];
+            XCTAssertEqual(host.userInfoRequestCount, 0);
+            host.identity = [[XYBookAudioIdentity alloc] initWithUserId:nil];
+        }
+        host.loginCompletion(outcome.integerValue, nil);
+        host.loginCompletion = nil;
+        [self waitForExpectations:@[ settled ] timeout:2];
+    }
+    XCTAssertEqual(host.userInfoRequestCount, 0);
+    [self closeUserInfoTestPage];
+}
+
+- (void)testDisposeSettlesPendingNotificationLoginOnce {
+    XYBookAudioNotificationLoginTestHost *host = [XYBookAudioNotificationLoginTestHost new];
+    [self useUserInfoTestHost:host];
+    if (![self openUserInfoTestPage]) {
+        return;
+    }
+
+    XCTestExpectation *settled = [self expectationWithDescription:@"dispose pending login"];
+    settled.assertForOverFulfill = YES;
+    [self.SDK executeAction:@"xhSnckGetUserInfo" parameters:@{@"goLogin" : @YES}
+                 completion:^(NSDictionary *result, NSError *error) {
+                     XCTAssertNil(result);
+                     XCTAssertEqualObjects(error.domain, XYBookAudioErrorDomain);
+                     XCTAssertEqual(error.code, XYBookAudioDisposed);
+                     [settled fulfill];
+                 }];
+    XCTAssertEqual(host.loginRequestCount, 1);
+    [self.SDK dispose];
+    host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"late-user"];
+    [self.SDK notifyLoginSuccess];
+    [self.SDK dispose];
+    [self waitForExpectations:@[ settled ] timeout:2];
+    XCTAssertEqual(host.userInfoRequestCount, 0);
+
+    UIViewController *presenter = UIApplication.sharedApplication.delegate.window.rootViewController;
+    XCTestExpectation *closed =
+        [self expectationForPredicate:[NSPredicate predicateWithBlock:^BOOL(id object, NSDictionary *bindings) {
+                  return presenter.presentedViewController == nil;
+              }] evaluatedWithObject:nil handler:nil];
+    [self waitForExpectations:@[ closed ] timeout:4];
 }
 
 - (void)testLegacyShareForwardsNonemptyImageAndNormalizesWrappedLink {

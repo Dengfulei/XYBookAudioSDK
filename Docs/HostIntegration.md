@@ -50,7 +50,7 @@ Safari 网页检查默认关闭。联调时在初始化 SDK 前设置 `configura
 | `AppBookAudioService` | SDK 配置、会话生命周期、事件转发、宿主账号／登录／分享／音频能力适配 |
 | `XYBookAudioDemoViewController` | 按钮动作、传入当前展示控制器、订阅事件更新界面 |
 | `AppAccountService` | 宿主账号状态的唯一来源，完成身份提交／退出后发送账号变更通知，不依赖 SDK |
-| `AppLoginViewController` | 宿主登录页，认证成功后提交账号状态，再返回宿主定义的结果；本地使用测试账号 |
+| `AppLoginViewController` | 宿主登录页，认证成功后提交测试账号，随后返回听书页 |
 | framework | 听书 WebView、JS 协议、播放、定时和断点存储 |
 
 业务页面在主线程调用：
@@ -93,11 +93,11 @@ if (![AppBookAudioService.sharedInstance configureWithConfiguration:configuratio
 
 - 打开时通过 `style` 指定全屏展示或 Push。两种方式均复用已有会话，同一时间只打开一组听书页面，重复打开返回 `BUSY`。
 - 页面销毁只移除自己的 `AppBookAudioServiceEventNotification` 监听，不调用 SDK `dispose` 或服务 `shutdown`。通知在主线程发送，`object` 是服务实例，字段使用公开的 `AppBookAudioServiceEventNameKey`、`AppBookAudioServiceEventParametersKey`。
-- 账号登录、退出和切换由 `AppAccountService` 完成，先提交状态，再发送 `AppAccountDidChangeNotification`。`AppBookAudioService` 监听通知并调用 `refreshHostIdentity`；`bookAudioUserIdentity` 每次读取宿主账号，不再缓存或修改身份。账号模块和页面无需调用任何 SDK 的退出接口，登录状态不等于购买权益。
+- 账号登录、退出和切换由 `AppAccountService` 完成，先提交状态，再发送 `AppAccountDidChangeNotification`。`AppBookAudioService` 监听通知，账号可用时调用 `notifyLoginSuccess`，退出时调用 `refreshHostIdentity`。`bookAudioUserIdentity` 每次读取宿主账号。
 - 其他播放器启动前调用 `yieldPlayback`。要停止听书播放，调用 `stopPlayback`。两者都保留 SDK 实例。
 - 明确结束听书服务用 `shutdown`，释放会话与事件订阅，同时保留最近成功配置及宿主账号。等待已有容器关闭后，可直接再次打开，或重新配置入口。未初始化时 `playbackSnapshot` 返回 `nil`。
 
-登录使用 SDK 回调传入的 `controller.navigationController` push，接入类只弱引用导航和返回页面。登录页仍在栈顶且来源网页仍在栈中时，登录结束回到来源网页。账号模块先提交登录后的身份，接入层负责将 `AppLoginResult` 转换为 SDK 结果。按钮取消、导航返回和容器关闭都只结算一次。
+Demo 使用 `bookAudioRequestLoginFrom:` 接入，通过 SDK 传入的 `controller.navigationController` push 登录页。登录成功时，账号变更通知驱动接入层继续等待中的 H5 请求，登录页自行返回。取消、模拟失败或导航返回时，SDK 继续等待账号成功通知或登录超时。
 
 宿主页面退出账号只调用账号模块：
 
@@ -163,7 +163,8 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 | 方法 | 宿主责任 |
 |---|---|
 | `bookAudioUserIdentity` | 返回身份对象；游客用 `[[XYBookAudioIdentity alloc] initWithUserId:nil]`。不得返回 token、密码、完整用户资料。 |
-| `bookAudioRequestLoginFrom:completion:` | 在给定控制器之上展示已有登录；回调 loggedIn/cancelled/failed。SDK 会重新读取身份。 |
+| `bookAudioRequestLoginFrom:completion:` | 有登录结果回调时使用。展示登录页，保存账号后回调 `XYBookAudioLoginLoggedIn`，取消或失败时回调对应结果。 |
+| `bookAudioRequestLoginFrom:` | 只能拉起登录页时使用。登录成功并保存账号后，由宿主账号模块独立调用 `[sdk notifyLoginSuccess]`。 |
 | `bookAudioShare:from:completion:` | 接收标准分享参数；accepted 表示已选择渠道，cancelled 表示取消，不承诺平台成功。 |
 | `bookAudioUserInfoWithParameters:completion:` | 可选。`xhSnckGetUserInfo` 在已登录时调用。接收完整请求参数，宿主校验自定义参数、处理票据并定义返回字段。SDK 原样回传非空 JSON 字典。 |
 | `bookAudioUserInfoUsingTicket:completion:` | 可选。旧版资料接口，在宿主未实现完整参数方法时调用。`useTicket: true` 时由宿主刷新票据。两个资料方法均缺失时返回 `UNSUPPORTED`。 |
@@ -173,11 +174,15 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 `xhShowShareMenu` 的 `link` 使用 HTTPS 地址。`[URL](URL)` 中两处地址相同时，SDK 会提取 HTTPS 地址。SDK 将非空的 `imgUrl` 字符串原样传给宿主，宿主按分享渠道处理图片。
 
-登录、分享必须结算一次，SDK 会拦截重复结果并在 180 秒后释放请求占用。账号变化时调用 `refreshHostIdentity`。SDK 会停止播放、取消定时和待处理的播放请求，并释放系统音频及锁屏控制。原生队列保留章节和原身份断点，旧付费音源会被撤销。每次播放或恢复时，SDK 都会重新读取身份。
+接入登录时选择一个登录方法。两者均实现时，SDK 优先调用带 completion 的方法，并等待该 completion 结算。两个方法均省略时，需要拉起登录的请求返回 `UNSUPPORTED`。
+
+无 completion 模式下，账号模块在主线程调用 `[sdk notifyLoginSuccess]`，此时 `bookAudioUserIdentity` 应已能读取登录后的账号。SDK 刷新身份，并用原始 `xhSnckGetUserInfo` 的完整参数查询宿主资料，通过原请求的 `callbackActionName` 回传。收到通知时身份仍为游客，SDK 会继续等待。两种方式共用 180 秒登录超时，超时后待处理的 `xhSnckGetUserInfo` 按游客回传 `{}`。SDK 对重复通知和迟到结果只结算一次。
+
+退出或切换账号后调用 `refreshHostIdentity`。带 completion 的登录流程会重新读取宿主身份。身份变化时，SDK 会停止播放、取消定时和待处理的播放请求，并释放系统音频及锁屏控制。原生队列保留章节和原身份断点，旧付费音源会被撤销。每次播放或恢复时，SDK 都会重新读取身份。分享由宿主调用 completion 结算，SDK 会拦截重复结果并在 180 秒超时后释放 `xhShowShareMenu` 请求占用。
 
 其他音频业务开始前调用 `yieldPlayback`，完成后再激活自身会话。此调用保留队列与定时器，听书不会自动抢回。`Stop` 清除定时器并保存位置；`Dispose` 还释放页面、观察者和事件订阅，实例不可再用。
 
-五个基础 host 方法必须实现，用户资料和系统资料方法在协议中为 optional。不需要账号或分享时，返回游客身份、登录取消和分享不支持；没有其他播放器时，释放通知可为空实现。所有能力都通过公开协议接入。
+身份、分享和音频交接方法必须实现，登录、用户资料和系统资料方法在协议中为 optional。无需账号时可返回游客身份并省略登录方法，分享不可用时返回 `XYBookAudioShareUnsupported`。没有其他播放器时，释放通知可为空实现。所有能力都通过公开协议接入。
 
 宿主未实现系统资料方法时，`xhGetSystemInfo` 默认返回设备型号、系统版本、App 名称和版本、系统 IDFV（`device_token`）以及当前听书窗口的状态栏和底部安全区高度。默认 `debug` 沿用 Demo 的数值 `1`。SDK 省略取不到的设备和 App 字段，缺少窗口时两项高度均为字符串 `"0"`。宿主实现该方法后，有效的 JSON 字典会原样返回，无效资料返回 `HOST_FAILED`。
 

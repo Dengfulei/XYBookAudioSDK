@@ -21,10 +21,6 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
 /// 主线程在播放前及账号变化后读取；必须返回身份对象，游客使用空 userId，不在这里弹登录页。
 - (XYBookAudioIdentity *)bookAudioUserIdentity;
 
-/// 在给定页面上展示宿主登录；登录成功只代表身份变化，受限章节仍需 H5 重新确认权益并供源。
-- (void)bookAudioRequestLoginFrom:(UIViewController *)controller
-                       completion:(void (^)(XYBookAudioLoginResult result, NSError *_Nullable error))completion;
-
 /// 接收标准分享参数；accepted 表示已调起渠道，succeeded 表示宿主确认实际分享成功。
 /// xhShowShareMenu 将非空 imgUrl 字符串原样传给宿主，由宿主处理图片。
 - (void)bookAudioShare:(NSDictionary<NSString *, id> *)request
@@ -39,6 +35,14 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
 - (void)bookAudioDidReleasePlayback;
 
 @optional
+/// 接入宿主登录时，在以下两个方法中选择一个。两者均实现时优先调用带 completion 的方法。
+/// 在给定页面上展示宿主登录。保存账号后回调 loggedIn，取消或失败时回调 cancelled 或 failed。
+- (void)bookAudioRequestLoginFrom:(UIViewController *)controller
+                       completion:(void (^)(XYBookAudioLoginResult result, NSError *_Nullable error))completion;
+
+/// 在给定页面上展示宿主登录。登录成功并保存账号后，由宿主账号模块调用 SDK 的 notifyLoginSuccess。
+- (void)bookAudioRequestLoginFrom:(UIViewController *)controller;
+
 /// 为 xhGetSystemInfo 提供宿主自定义的系统资料与设备标识。
 /// 缺省时 SDK 读取当前 App、设备和窗口的信息，device_token 使用系统 IDFV。
 /// 实现此方法时应返回可 JSON 序列化的非空字典，无效资料返回 HOST_FAILED。

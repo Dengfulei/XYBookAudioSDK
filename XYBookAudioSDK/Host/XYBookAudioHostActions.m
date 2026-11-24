@@ -97,7 +97,8 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
 @property (nonatomic, strong) XYBookAudioLogger *logger;
 
 @property (nonatomic, weak) id<XYBookAudioHost> host;
-@property (nonatomic) BOOL loginPending, sharePending, disposed;
+@property (nonatomic, copy) XYBookAudioHostReply loginReply;
+@property (nonatomic) BOOL loginAwaitsNotification, sharePending, disposed;
 
 @end
 
@@ -168,6 +169,7 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
         completion(@{}, nil);
         return;
     }
+    __weak typeof(self) weakSelf = self;
     [self requestLoginFrom:presenter completion:^(NSDictionary *result, NSError *loginError) {
         if (loginError) {
             completion(nil, loginError);
@@ -177,7 +179,7 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
             completion(@{}, nil);
             return;
         }
-        [self readUserInfoWithParameters:parameters completion:completion];
+        [weakSelf readUserInfoWithParameters:parameters completion:completion];
     }];
 }
 
@@ -273,12 +275,17 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
 
 /// 登录占用在首次结果或超时后释放；重复／迟到回调不能再次结算，但有效账号变化仍需刷新。
 - (void)login:(UIViewController *)presenter completion:(XYBookAudioCompletion)completion {
-    if (self.loginPending) {
+    if (self.loginReply) {
         completion(nil, XYBookAudioError(XYBookAudioBusy, @"Login is already in progress."));
         return;
     }
-    self.loginPending = YES;
-    [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost message:@"Login requested from host."];
+    id<XYBookAudioHost> host = self.host;
+    BOOL hasCompletion = [host respondsToSelector:@selector(bookAudioRequestLoginFrom:completion:)];
+    if (!hasCompletion && ![host respondsToSelector:@selector(bookAudioRequestLoginFrom:)]) {
+        completion(nil, XYBookAudioError(XYBookAudioUnsupported, @"Host login is unavailable."));
+        return;
+    }
+    self.loginAwaitsNotification = !hasCompletion;
     __weak typeof(self) weakSelf = self;
     dispatch_block_t refreshIdentity = ^{
         dispatch_block_t identityChanged = weakSelf.identityChanged;
@@ -289,13 +296,14 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
     XYBookAudioHostReply reply = XYBookAudioMakeHostReply(
         XYBookAudioHostRequestTimeout, XYBookAudioError(XYBookAudioHostFailed, @"Host login timed out."),
         refreshIdentity, ^(id response, NSError *hostError) {
-            self.loginPending = NO;
-            if (hostError) {
-                [self.logger error:hostError component:XYBookAudioLogHost operation:@"Login"];
-            }
-            if (self.disposed) {
+            typeof(self) self = weakSelf;
+            self.loginReply = nil;
+            if (!self || self.disposed) {
                 completion(nil, XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
                 return;
+            }
+            if (hostError) {
+                [self.logger error:hostError component:XYBookAudioLogHost operation:@"Login"];
             }
             if ([hostError.domain isEqual:XYBookAudioErrorDomain] && hostError.code == XYBookAudioBusy) {
                 completion(nil, hostError);
@@ -320,9 +328,29 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
                        message:[@"Login result: " stringByAppendingString:status]];
             completion(@{XYBookAudioKeyStatus : status, XYBookAudioKeyIdentity : identity}, nil);
         });
-    [self.host bookAudioRequestLoginFrom:presenter completion:^(XYBookAudioLoginResult result, NSError *hostError) {
-        reply(@(result), hostError);
-    }];
+    self.loginReply = reply;
+    [self.logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogHost message:@"Login requested from host."];
+    if (self.disposed) {
+        return;
+    }
+    if (hasCompletion) {
+        [host bookAudioRequestLoginFrom:presenter completion:^(XYBookAudioLoginResult result, NSError *hostError) {
+            reply(@(result), hostError);
+        }];
+    } else {
+        [host bookAudioRequestLoginFrom:presenter];
+    }
+}
+
+- (void)notifyLoginSuccess {
+    if (self.disposed || ![self.host bookAudioUserIdentity].isLoggedIn) {
+        return;
+    }
+    if (self.loginReply && self.loginAwaitsNotification) {
+        self.loginReply(@(XYBookAudioLoginLoggedIn), nil);
+    } else if (self.identityChanged) {
+        self.identityChanged();
+    }
 }
 
 /// 先验证分享字段再交给宿主；仅透传公开分享契约，回执不承诺第三方平台分享完成。
@@ -435,6 +463,9 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
 - (void)dispose {
     self.disposed = YES;
     self.identityChanged = nil;
+    if (self.loginReply) {
+        self.loginReply(nil, XYBookAudioError(XYBookAudioDisposed, @"SDK was disposed."));
+    }
 }
 
 @end

@@ -1,4 +1,4 @@
-// 宿主登录页负责本地认证流程演示和结果结算；成功状态写入账号模块，导航由调用方处理。
+// 宿主登录页演示本地认证，成功后将身份写入账号模块。
 #import "AppLoginViewController.h"
 #import "AppAccountService.h"
 
@@ -77,20 +77,26 @@ static CGFloat const AppLoginMargin = 24;
     }
 }
 
+- (void)finishFromButtonWithResult:(AppLoginResult)result {
+    if (self.completion) {
+        [self finishWithResult:result];
+    } else if (self.navigationController.topViewController == self) {
+        [self.navigationController popViewControllerAnimated:YES];
+    }
+}
+
 /// 本地测试账号替代尚未接入的认证服务；正式宿主在认证成功后通过同一账号入口提交身份。
 - (void)login {
     [AppAccountService.sharedInstance updateAuthenticatedUserId:AppLoginFixtureUserId];
-    [self finishWithResult:AppLoginSucceeded];
+    [self finishFromButtonWithResult:AppLoginSucceeded];
 }
 
-/// 显式模拟失败，用于验证 H5 能够收到失败结果。
 - (void)fail {
-    [self finishWithResult:AppLoginFailed];
+    [self finishFromButtonWithResult:AppLoginFailed];
 }
 
-/// 显式取消与导航返回使用相同的结算路径。
 - (void)cancel {
-    [self finishWithResult:AppLoginCancelled];
+    [self finishFromButtonWithResult:AppLoginCancelled];
 }
 
 @end

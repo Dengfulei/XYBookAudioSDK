@@ -209,22 +209,17 @@
     XCTAssertEqualObjects(stopped[@"bookId"], @"SNCK");
 }
 
-/// 从宿主协议发起登录，随后验证 SNCK 身份同步。
-- (XCTestExpectation *)requestLogin:(UINavigationController *)navigation result:(XYBookAudioLoginResult)expected {
-    XCTestExpectation *done = [self expectationWithDescription:@"宿主登录完成"];
-    done.assertForOverFulfill = YES;
-    id<XYBookAudioHost> host = (id<XYBookAudioHost>)self.service;
-    [host bookAudioRequestLoginFrom:navigation.topViewController
-                         completion:^(XYBookAudioLoginResult result, NSError *error) {
-                             XCTAssertNil(error);
-                             XCTAssertEqual(result, expected);
-                             [done fulfill];
-                         }];
+/// 从 H5 发起登录，保留原始资料请求供账号通知完成。
+- (void)requestLoginInWeb:(WKWebView *)web navigation:(UINavigationController *)navigation {
+    [self runJavaScript:@"window.loginProfileSettled = false;"
+                         "window.loginProfile = call('xhSnckGetUserInfo', {goLogin:true}).finally(() => {"
+                         "  window.loginProfileSettled = true;"
+                         "}); return true;"
+                    web:web];
     [self waitUntil:^BOOL {
         return navigation.viewControllers.count == 2 && navigation.topViewController.viewIfLoaded.window != nil &&
                navigation.transitionCoordinator == nil;
     }];
-    return done;
 }
 
 - (void)tapTitle:(NSString *)title in:(UIView *)view {
@@ -243,10 +238,9 @@
     UINavigationController *navigation = (UINavigationController *)presenter.presentedViewController;
     __weak UIViewController *weakLogin;
     @autoreleasepool {
-        XCTestExpectation *login = [self requestLogin:navigation result:XYBookAudioLoginLoggedIn];
+        [self requestLoginInWeb:web navigation:navigation];
         weakLogin = navigation.topViewController;
         [self tapTitle:@"登录测试账号" in:navigation.topViewController.view];
-        [self waitForExpectations:@[ login ] timeout:5];
         [self waitUntil:^BOOL {
             return navigation.viewControllers.count == 1 && navigation.transitionCoordinator == nil;
         }];
@@ -255,7 +249,8 @@
         return weakLogin == nil;
     }];
     [self waitForIdentityText:@"用户：local-user" web:web];
-    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).id;" web:web], @"local-user");
+    XCTAssertEqualObjects([self runJavaScript:@"return await loginProfile;" web:web],
+                          (@{@"id" : @"local-user", @"info" : @{@"id" : @"local-user"}}));
     XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckAudioGetState')).items;" web:web], @[]);
     [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     [AppAccountService.sharedInstance logout];
@@ -265,20 +260,20 @@
     XCTAssertEqualObjects(playback[@"items"], @[]);
 }
 
-- (void)testBackCancellationAllowsAnotherLoginAndFailureResult {
+- (void)testBackLeavesLoginPendingUntilAccountNotification {
     [self configure];
     WKWebView *web = [self openFrom:self.originalRoot];
     UINavigationController *navigation = (UINavigationController *)self.originalRoot.presentedViewController;
-    XCTestExpectation *cancelled = [self requestLogin:navigation result:XYBookAudioLoginCancelled];
+    [self requestLoginInWeb:web navigation:navigation];
     [navigation popViewControllerAnimated:NO];
-    [self waitForExpectations:@[ cancelled ] timeout:5];
-    XCTestExpectation *failed = [self requestLogin:navigation result:XYBookAudioLoginFailed];
-    [self tapTitle:@"模拟失败" in:navigation.topViewController.view];
-    [self waitForExpectations:@[ failed ] timeout:5];
     [self waitUntil:^BOOL {
         return navigation.viewControllers.count == 1 && navigation.transitionCoordinator == nil;
     }];
     XCTAssertEqualObjects([self runJavaScript:@"return await call('xhSnckGetUserInfo');" web:web], @{});
+    XCTAssertEqualObjects([self runJavaScript:@"return loginProfileSettled;" web:web], @NO);
+
+    [AppAccountService.sharedInstance updateAuthenticatedUserId:@"external-user"];
+    XCTAssertEqualObjects([self runJavaScript:@"return (await loginProfile).id;" web:web], @"external-user");
 }
 
 - (void)testShutdownReleasesSessionAndReopenRetainsConfiguration {
