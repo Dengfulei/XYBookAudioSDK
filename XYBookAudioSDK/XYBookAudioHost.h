@@ -26,6 +26,7 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
                        completion:(void (^)(XYBookAudioLoginResult result, NSError *_Nullable error))completion;
 
 /// 接收标准分享参数；accepted 表示已调起渠道，succeeded 表示宿主确认实际分享成功。
+/// xhShowShareMenu 将非空 imgUrl 字符串原样传给宿主，由宿主处理图片。
 - (void)bookAudioShare:(NSDictionary<NSString *, id> *)request
                   from:(UIViewController *)controller
             completion:(void (^)(XYBookAudioShareResult result, NSError *_Nullable error))completion;

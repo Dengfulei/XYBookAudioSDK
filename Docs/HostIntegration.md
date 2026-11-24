@@ -169,6 +169,8 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 | `bookAudioAcquirePlayback:` | 通过宿主已有接口让出音频控制权并在 10 秒内回调。没有其他播放器时直接 completion(nil)。无法按时完成时，宿主应撤销待处理的交接。 |
 | `bookAudioDidReleasePlayback` | SDK 释放了音频控制权，或宿主已确认让出音频但请求未能启动播放。宿主根据当前音频状态决定后续操作。 |
 
+`xhShowShareMenu` 的 `link` 使用 HTTPS 地址。`[URL](URL)` 中两处地址相同时，SDK 会提取 HTTPS 地址。SDK 将非空的 `imgUrl` 字符串原样传给宿主，宿主按分享渠道处理图片。
+
 登录、分享必须结算一次，SDK 会拦截重复结果并在 180 秒后释放请求占用。账号变化时调用 `refreshHostIdentity`。SDK 会停止播放、取消定时和待处理的播放请求，并释放系统音频及锁屏控制。原生队列保留章节和原身份断点，旧付费音源会被撤销。每次播放或恢复时，SDK 都会重新读取身份。
 
 其他音频业务开始前调用 `yieldPlayback`，完成后再激活自身会话。此调用保留队列与定时器，听书不会自动抢回。`Stop` 清除定时器并保存位置；`Dispose` 还释放页面、观察者和事件订阅，实例不可再用。

@@ -46,6 +46,27 @@ static NSString *XYBookAudioShareStatus(XYBookAudioShareResult result) {
     return XYBookAudioValueFailed;
 }
 
+static NSString *XYBookAudioLegacyShareLink(id value) {
+    if (XYBookAudioIsHTTPSURLString(value)) {
+        return value;
+    }
+    if (![value isKindOfClass:NSString.class]) {
+        return nil;
+    }
+    NSString *text = value;
+    if (![text hasPrefix:@"["] || ![text hasSuffix:@")"]) {
+        return nil;
+    }
+    NSRange separator = [text rangeOfString:@"]("];
+    if (separator.location == NSNotFound) {
+        return nil;
+    }
+    NSUInteger start = NSMaxRange(separator);
+    NSString *link = [text substringWithRange:NSMakeRange(start, text.length - start - 1)];
+    NSString *label = [text substringWithRange:NSMakeRange(1, separator.location - 1)];
+    return [label isEqualToString:link] && XYBookAudioIsHTTPSURLString(link) ? link : nil;
+}
+
 static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
     UIDevice *device = UIDevice.currentDevice;
     NSBundle *bundle = NSBundle.mainBundle;
@@ -308,19 +329,21 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
 - (void)share:(NSDictionary *)parameters
      presenter:(UIViewController *)presenter
     completion:(XYBookAudioCompletion)completion {
-    if (!XYBookAudioIsNonEmptyString(parameters[XYBookAudioKeyTitle]) ||
-        !XYBookAudioIsHTTPSURLString(parameters[XYBookAudioKeyLink]) ||
-        (parameters[XYBookAudioKeyDescription] &&
-         ![parameters[XYBookAudioKeyDescription] isKindOfClass:NSString.class]) ||
-        (parameters[XYBookAudioKeyImageURL] && (![parameters[XYBookAudioKeyImageURL] isKindOfClass:NSString.class] ||
-                                                ([parameters[XYBookAudioKeyImageURL] length] &&
-                                                 !XYBookAudioIsHTTPSURLString(parameters[XYBookAudioKeyImageURL]))))) {
+    NSString *link = XYBookAudioLegacyShareLink(parameters[XYBookAudioKeyLink]);
+    id description = parameters[XYBookAudioKeyDescription];
+    if (!XYBookAudioIsNonEmptyString(parameters[XYBookAudioKeyTitle]) || !link ||
+        (description && ![description isKindOfClass:NSString.class])) {
         completion(nil,
                    XYBookAudioError(XYBookAudioInvalidArgument,
-                                    @"Sharing requires title and an HTTPS link; desc and HTTPS imgUrl are optional."));
+                                    @"Sharing requires a title and an HTTPS link. Optional desc must be a string."));
         return;
     }
-    [self dispatchShare:parameters presenter:presenter snck:NO completion:completion];
+    NSMutableDictionary *request = [parameters mutableCopy];
+    request[XYBookAudioKeyLink] = link;
+    if (!XYBookAudioIsNonEmptyString(request[XYBookAudioKeyImageURL])) {
+        [request removeObjectForKey:XYBookAudioKeyImageURL];
+    }
+    [self dispatchShare:request presenter:presenter snck:NO completion:completion];
 }
 
 - (void)shareSnck:(NSDictionary *)parameters

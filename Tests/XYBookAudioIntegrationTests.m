@@ -16,6 +16,7 @@
 @property (nonatomic, copy) void (^pendingAcquire)(NSError *);
 @property (nonatomic, copy) void (^didReleasePlayback)(void);
 @property (nonatomic, copy) NSDictionary *userInfoParameters;
+@property (nonatomic, copy) NSDictionary *shareRequest;
 @property (nonatomic) BOOL delayAcquire;
 @property (nonatomic) NSUInteger acquisitionCount;
 @property (nonatomic) NSUInteger releaseCount;
@@ -65,6 +66,7 @@
 - (void)bookAudioShare:(NSDictionary *)request
                   from:(UIViewController *)controller
             completion:(void (^)(XYBookAudioShareResult, NSError *))completion {
+    self.shareRequest = request;
     completion(XYBookAudioShareAccepted, nil);
 }
 
@@ -784,6 +786,56 @@
               }];
     [self waitForExpectations:@[ queried ] timeout:8];
     XCTestExpectation *closed = [self expectationWithDescription:@"close"];
+    [presenter dismissViewControllerAnimated:NO completion:^{
+        [closed fulfill];
+    }];
+    [self waitForExpectations:@[ closed ] timeout:3];
+}
+
+- (void)testLegacyShareForwardsNonemptyImageAndNormalizesWrappedLink {
+    UIViewController *presenter = UIApplication.sharedApplication.delegate.window.rootViewController;
+    XCTestExpectation *opened = [self expectationWithDescription:@"open sharing page"];
+    [self.SDK openFromViewController:presenter completion:^(NSError *error) {
+        XCTAssertNil(error);
+        [opened fulfill];
+    }];
+    [self waitForExpectations:@[ opened ] timeout:5];
+    WKWebView *web = [self findWebView:presenter.presentedViewController.view];
+    XCTAssertNotNil(web);
+    if (![self waitForFixturePage:web]) {
+        return;
+    }
+
+    NSString *link = @"https://example.com/h5/snck/index.html#/";
+    NSString *wrappedLink = [NSString stringWithFormat:@"[%@](%@)", link, link];
+    NSDictionary *invalid = @{@"title" : @"Book", @"link" : @"[https://example.com](https://example.org)"};
+    XCTestExpectation *rejected = [self expectationWithDescription:@"reject mismatched link"];
+    [self.SDK executeAction:@"xhShowShareMenu" parameters:invalid completion:^(NSDictionary *result, NSError *error) {
+        XCTAssertNil(result);
+        XCTAssertEqualObjects(error.domain, XYBookAudioErrorDomain);
+        XCTAssertEqual(error.code, XYBookAudioInvalidArgument);
+        [rejected fulfill];
+    }];
+    [self waitForExpectations:@[ rejected ] timeout:2];
+    XCTAssertNil(self.host.shareRequest);
+
+    for (NSString *image in @[ @"cover-reference", @"" ]) {
+        NSDictionary *parameters =
+            @{@"title" : @"少年参考", @"desc" : @"新闻周刊", @"link" : wrappedLink, @"imgUrl" : image};
+        XCTestExpectation *shared = [self expectationWithDescription:@"share from H5"];
+        [web callAsyncJavaScript:@"return await call('xhShowShareMenu', request);" arguments:@{@"request" : parameters}
+                         inFrame:nil
+                  inContentWorld:WKContentWorld.pageWorld completionHandler:^(NSDictionary *result, NSError *error) {
+                      XCTAssertNil(error);
+                      XCTAssertEqualObjects(result, @{});
+                      XCTAssertEqualObjects(self.host.shareRequest[@"link"], link);
+                      XCTAssertEqualObjects(self.host.shareRequest[@"imgUrl"], image.length ? image : nil);
+                      [shared fulfill];
+                  }];
+        [self waitForExpectations:@[ shared ] timeout:6];
+    }
+
+    XCTestExpectation *closed = [self expectationWithDescription:@"close sharing page"];
     [presenter dismissViewControllerAnimated:NO completion:^{
         [closed fulfill];
     }];
