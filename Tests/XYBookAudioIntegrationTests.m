@@ -15,6 +15,7 @@
 @property (nonatomic, strong) XYBookAudioIdentity *identity;
 @property (nonatomic, copy) void (^pendingAcquire)(NSError *);
 @property (nonatomic, copy) void (^didReleasePlayback)(void);
+@property (nonatomic, copy) NSDictionary *userInfoParameters;
 @property (nonatomic) BOOL delayAcquire;
 @property (nonatomic) NSUInteger acquisitionCount;
 @property (nonatomic) NSUInteger releaseCount;
@@ -53,6 +54,12 @@
 /// 测试宿主返回自己的资料格式，验证桥接不会将其裁剪为简化身份或添加包装。
 - (void)bookAudioUserInfoUsingTicket:(BOOL)usingTicket completion:(void (^)(NSDictionary *, NSError *))completion {
     completion(@{@"id" : self.identity.userId, @"info" : @{@"id" : self.identity.userId, @"name" : @"测试用户"}}, nil);
+}
+
+- (void)bookAudioUserInfoWithParameters:(NSDictionary<NSString *, id> *)parameters
+                             completion:(void (^)(NSDictionary *, NSError *))completion {
+    self.userInfoParameters = parameters;
+    completion(@{@"memberId" : self.identity.userId, @"profile" : @{@"displayName" : @"测试用户"}}, nil);
 }
 
 - (void)bookAudioShare:(NSDictionary *)request
@@ -719,6 +726,45 @@
     XCTWaiterResult result = [XCTWaiter waitForExpectations:@[ loaded ] timeout:12];
     XCTAssertEqual(result, XCTWaiterResultCompleted, @"A valid local entry must load its HTML and relative scripts.");
     return result == XCTWaiterResultCompleted;
+}
+
+- (void)testSnckUserInfoLogsInAndReturnsHostDefinedProfile {
+    UIViewController *presenter = UIApplication.sharedApplication.delegate.window.rootViewController;
+    XCTestExpectation *opened = [self expectationWithDescription:@"open"];
+    [self.SDK openFromViewController:presenter completion:^(NSError *error) {
+        XCTAssertNil(error);
+        [opened fulfill];
+    }];
+    [self waitForExpectations:@[ opened ] timeout:5];
+    WKWebView *web = [self findWebView:presenter.presentedViewController.view];
+    XCTAssertNotNil(web);
+    if (![self waitForFixturePage:web]) {
+        return;
+    }
+
+    NSDictionary *parameters =
+        @{@"goLogin" : @YES, @"useTicket" : @YES, @"options" : @{@"fields" : @[ @"displayName" ]}};
+    XCTestExpectation *queried = [self expectationWithDescription:@"query host profile"];
+    [web callAsyncJavaScript:@"const guest = await call('xhSnckGetUserInfo');"
+                              "const profile = await call('xhSnckGetUserInfo', request);"
+                              "return {guest, profile};"
+                   arguments:@{@"request" : parameters}
+                     inFrame:nil
+              inContentWorld:WKContentWorld.pageWorld completionHandler:^(NSDictionary *result, NSError *error) {
+                  XCTAssertNil(error);
+                  XCTAssertEqualObjects(result[@"guest"], @{});
+                  XCTAssertEqualObjects(result[@"profile"],
+                                        (@{@"memberId" : @"test-user",
+                                           @"profile" : @{@"displayName" : @"测试用户"}}));
+                  XCTAssertEqualObjects(self.host.userInfoParameters, parameters);
+                  [queried fulfill];
+              }];
+    [self waitForExpectations:@[ queried ] timeout:8];
+    XCTestExpectation *closed = [self expectationWithDescription:@"close"];
+    [presenter dismissViewControllerAnimated:NO completion:^{
+        [closed fulfill];
+    }];
+    [self waitForExpectations:@[ closed ] timeout:3];
 }
 
 /// 本地入口别名解析后的目录必须与 WebKit 获得读取权限的目录一致。

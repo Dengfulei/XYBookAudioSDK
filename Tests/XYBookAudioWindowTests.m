@@ -259,8 +259,7 @@
               @"snckEvents.some(event=>event.actionName==='snckUserChanged' && event.parameters.user?.id==='snck-user')"
                     web:web];
     NSDictionary *user = [self script:@"return (await snckCall('xhSnckGetUserInfo')).parameters;" web:web];
-    XCTAssertEqualObjects(user[@"initialization"], @"AUTHENTICATED");
-    XCTAssertEqualObjects(user[@"user"][@"id"], @"snck-user");
+    XCTAssertEqualObjects(user, (@{@"id" : @"snck-user", @"info" : @{@"id" : @"snck-user"}}));
     NSDictionary *invalid =
         [self script:@"return (await snckCall('xhSnckOpenPage',{url:'file:///etc/hosts'})).parameters;" web:web];
     XCTAssertEqualObjects(invalid[@"code"], @4101);
@@ -435,19 +434,24 @@
         [self script:@"return await call('xhGetUserInfo', {goLogin:false, useTicket:false});" web:web];
     XCTAssertEqualObjects(profile, (@{@"id" : @"profile-user", @"info" : @{@"id" : @"profile-user"}}));
 
-    NSDictionary *failure = [self
-        script:@"return await new Promise(resolve => {"
-                "  const receive = window.xhWebJSBridge.nativeCallJS;"
-                "  window.xhWebJSBridge.nativeCallJS = message => {"
-                "    if (message.actionName === 'onBookAudioError') resolve(message.parameters);"
-                "    else if (message.actionName === 'ticket-reply') resolve(null);"
-                "    else receive(message);"
-                "  };"
-                "  window.xhAppJSBridge.JSCallNative(JSON.stringify({actionName:'xhGetUserInfo',"
-                "    parameters:{useTicket:true}, callbackActionName:'ticket-reply'}));"
-                "});"
-           web:web];
-    XCTAssertEqualObjects(failure[@"code"], @"UNSUPPORTED");
+    for (NSString *action in @[ @"xhGetUserInfo", @"xhSnckGetUserInfo" ]) {
+        NSString *script = [NSString
+            stringWithFormat:
+                @"return await new Promise(resolve => {"
+                 "  const receive = window.xhWebJSBridge.nativeCallJS;"
+                 "  window.xhWebJSBridge.nativeCallJS = message => {"
+                 "    if (message.actionName === 'onBookAudioError' || message.actionName === 'ticket-reply') {"
+                 "      window.xhWebJSBridge.nativeCallJS = receive;"
+                 "      resolve(message.actionName === 'onBookAudioError' ? message.parameters : {});"
+                 "    } else receive(message);"
+                 "  };"
+                 "  window.xhAppJSBridge.JSCallNative(JSON.stringify({actionName:'%@',"
+                 "    parameters:{useTicket:true}, callbackActionName:'ticket-reply'}));"
+                 "});",
+                action];
+        NSDictionary *failure = [self script:script web:web];
+        XCTAssertEqualObjects(failure[@"code"], @"UNSUPPORTED", @"%@", action);
+    }
 }
 
 - (void)testLegacyShareOnlyRepliesWhenAccepted {

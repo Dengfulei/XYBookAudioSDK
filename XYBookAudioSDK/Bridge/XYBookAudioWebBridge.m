@@ -46,8 +46,9 @@ static NSArray<NSString *> *XYBookAudioLegacyUIActions(void) {
     ];
 }
 
-static BOOL XYBookAudioIsLegacyInfoAction(NSString *action) {
-    return [action isEqual:XYBookAudioActionGetUserInfo] || [action isEqual:XYBookAudioActionGetSystemInfo];
+static BOOL XYBookAudioIsHostInfoAction(NSString *action) {
+    return [action isEqual:XYBookAudioActionGetUserInfo] || [action isEqual:XYBookAudioActionGetSystemInfo] ||
+           [action isEqual:@"xhSnckGetUserInfo"];
 }
 
 static SEL XYBookAudioH5Selector(id action) {
@@ -55,7 +56,7 @@ static SEL XYBookAudioH5Selector(id action) {
         return NULL;
     }
     if (![action hasPrefix:XYBookAudioSnckMethodPrefix] && ![action isEqual:XYBookAudioActionCanIUse] &&
-        !XYBookAudioIsLegacyInfoAction(action) && ![XYBookAudioLegacyUIActions() containsObject:action]) {
+        !XYBookAudioIsHostInfoAction(action) && ![XYBookAudioLegacyUIActions() containsObject:action]) {
         return NULL;
     }
     return NSSelectorFromString([action stringByAppendingString:@":"]);
@@ -172,7 +173,7 @@ static SEL XYBookAudioH5Selector(id action) {
     id callback = request[XYBookAudioKeyCallbackActionName];
     if (callback && !XYBookAudioIsNonEmptyString(callback)) {
         NSString *errorMessage = @"callbackActionName must be a nonempty string when provided.";
-        if (XYBookAudioIsLegacyInfoAction(action)) {
+        if (XYBookAudioIsHostInfoAction(action)) {
             [self answerRequest:request result:nil error:XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
                      generation:self.generation];
         } else {
@@ -196,7 +197,7 @@ static SEL XYBookAudioH5Selector(id action) {
                      component:XYBookAudioLogBridge
                      operation:action];
         } else {
-            NSError *error = XYBookAudioIsLegacyInfoAction(action)
+            NSError *error = XYBookAudioIsHostInfoAction(action)
                                  ? XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
                                  : XYBookAudioMakeSnckError(-2, errorMessage);
             [self answerRequest:request result:nil error:error generation:self.generation];
@@ -205,8 +206,8 @@ static SEL XYBookAudioH5Selector(id action) {
     }
     if (!self.SDK) {
         NSString *errorMessage = @"The SDK is unavailable.";
-        NSError *error = XYBookAudioIsLegacyInfoAction(action) ? XYBookAudioError(XYBookAudioDisposed, errorMessage)
-                                                               : XYBookAudioMakeSnckError(4102, errorMessage);
+        NSError *error = XYBookAudioIsHostInfoAction(action) ? XYBookAudioError(XYBookAudioDisposed, errorMessage)
+                                                             : XYBookAudioMakeSnckError(4102, errorMessage);
         [self answerRequest:request result:nil error:error generation:self.generation];
         return;
     }
@@ -361,8 +362,7 @@ static SEL XYBookAudioH5Selector(id action) {
 }
 
 - (void)xhSnckGetUserInfo:(NSDictionary *)request {
-    XYBookAudioCompletion reply = [self callbackForRequest:request];
-    reply([self.SDK snckUserState], nil);
+    [self xhGetUserInfo:request];
 }
 
 - (void)xhSnckShare:(NSDictionary *)request {
@@ -552,7 +552,7 @@ static SEL XYBookAudioH5Selector(id action) {
                 error:(NSError *)error
            generation:(NSUInteger)generation {
     NSString *action = request[XYBookAudioKeyActionName];
-    if (error && XYBookAudioIsLegacyInfoAction(action)) {
+    if (error && XYBookAudioIsHostInfoAction(action)) {
         [self.logger error:error component:XYBookAudioLogBridge operation:action];
         NSDictionary *payload =
             @{XYBookAudioKeyCode : XYBookAudioErrorName(error), XYBookAudioKeyMessage : error.localizedDescription};

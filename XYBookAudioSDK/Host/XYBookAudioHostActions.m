@@ -132,15 +132,15 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
 - (void)getUserInfo:(NSDictionary *)parameters
           presenter:(UIViewController *)presenter
          completion:(XYBookAudioCompletion)completion {
+    parameters = [parameters copy];
     NSError *error = [self userInfoParametersError:parameters];
     NSDictionary *identity = error ? nil : [self identity:&error];
     if (error) {
         completion(nil, error);
         return;
     }
-    BOOL usingTicket = [parameters[XYBookAudioKeyUseTicket] boolValue];
     if ([identity[XYBookAudioKeyIsLoggedIn] boolValue]) {
-        [self readUserInfoUsingTicket:usingTicket completion:completion];
+        [self readUserInfoWithParameters:parameters completion:completion];
         return;
     }
     if (![parameters[XYBookAudioKeyGoLogin] boolValue]) {
@@ -156,26 +156,33 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
             completion(@{}, nil);
             return;
         }
-        [self readUserInfoUsingTicket:usingTicket completion:completion];
+        [self readUserInfoWithParameters:parameters completion:completion];
     }];
 }
 
 /// 宿主异步资料原样回传；账号变化或实例销毁后拒绝旧资料，避免跨账号泄露。
-- (void)readUserInfoUsingTicket:(BOOL)usingTicket completion:(XYBookAudioCompletion)completion {
-    if (![self.host respondsToSelector:@selector(bookAudioUserInfoUsingTicket:completion:)]) {
+- (void)readUserInfoWithParameters:(NSDictionary *)parameters completion:(XYBookAudioCompletion)completion {
+    id<XYBookAudioHost> host = self.host;
+    BOOL acceptsParameters = [host respondsToSelector:@selector(bookAudioUserInfoWithParameters:completion:)];
+    if (!acceptsParameters && ![host respondsToSelector:@selector(bookAudioUserInfoUsingTicket:completion:)]) {
         completion(nil, XYBookAudioError(XYBookAudioUnsupported, @"Host user-info provider is unavailable."));
         return;
     }
-    NSString *userId = [self.host bookAudioUserIdentity].userId;
+    NSString *userId = [host bookAudioUserIdentity].userId;
     XYBookAudioHostReply reply = XYBookAudioMakeHostReply(
         XYBookAudioHostRequestTimeout, XYBookAudioError(XYBookAudioHostFailed, @"Host user-info request timed out."),
         nil, ^(id userInfo, NSError *hostError) {
             NSError *error = [self userInfoResultError:userInfo hostError:hostError expectedUserId:userId];
             completion(error ? nil : userInfo, error);
         });
-    [self.host bookAudioUserInfoUsingTicket:usingTicket completion:^(NSDictionary *userInfo, NSError *hostError) {
+    void (^hostCompletion)(NSDictionary *, NSError *) = ^(NSDictionary *userInfo, NSError *hostError) {
         reply(userInfo, hostError);
-    }];
+    };
+    if (acceptsParameters) {
+        [host bookAudioUserInfoWithParameters:parameters completion:hostCompletion];
+    } else {
+        [host bookAudioUserInfoUsingTicket:[parameters[XYBookAudioKeyUseTicket] boolValue] completion:hostCompletion];
+    }
 }
 
 /// 只检查资料是否仍属于当前账号及 JSON 可用性；具体字段由宿主和 H5 标准约定。

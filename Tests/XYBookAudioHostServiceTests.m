@@ -255,8 +255,7 @@
         return weakLogin == nil;
     }];
     [self waitForIdentityText:@"用户：local-user" web:web];
-    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).user.id;" web:web],
-                          @"local-user");
+    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).id;" web:web], @"local-user");
     XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckAudioGetState')).items;" web:web], @[]);
     [self runJavaScript:@"await loadQueue('https://example.invalid/fixture.mp3'); return true;" web:web];
     [AppAccountService.sharedInstance logout];
@@ -279,7 +278,7 @@
     [self waitUntil:^BOOL {
         return navigation.viewControllers.count == 1 && navigation.transitionCoordinator == nil;
     }];
-    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).guest;" web:web], @YES);
+    XCTAssertEqualObjects([self runJavaScript:@"return await call('xhSnckGetUserInfo');" web:web], @{});
 }
 
 - (void)testShutdownReleasesSessionAndReopenRetainsConfiguration {
@@ -345,7 +344,7 @@
     [account logout];
     web = [self openFrom:self.originalRoot];
     [self waitForIdentityText:@"游客" web:web];
-    XCTAssertEqualObjects([self runJavaScript:@"return (await call('xhSnckGetUserInfo')).guest;" web:web], @YES);
+    XCTAssertEqualObjects([self runJavaScript:@"return await call('xhSnckGetUserInfo');" web:web], @{});
 }
 
 @end
