@@ -342,14 +342,10 @@ static NSDictionary *XYBookAudioDefaultSystemInfo(UIViewController *presenter) {
     }
 }
 
-- (void)notifyLoginSuccess {
-    if (self.disposed || ![self.host bookAudioUserIdentity].isLoggedIn) {
-        return;
-    }
-    if (self.loginReply && self.loginAwaitsNotification) {
+- (void)resumePendingLoginIfAuthenticated {
+    if (!self.disposed && self.loginReply && self.loginAwaitsNotification &&
+        [self.host bookAudioUserIdentity].isLoggedIn) {
         self.loginReply(@(XYBookAudioLoginLoggedIn), nil);
-    } else if (self.identityChanged) {
-        self.identityChanged();
     }
 }
 

@@ -51,14 +51,9 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     [NSNotificationCenter.defaultCenter removeObserver:self];
 }
 
-/// 账号模块先提交身份再发通知，接入层用已保存的账号继续等待中的登录。
+/// 账号模块先提交身份再发通知，接入层统一刷新身份并继续等待中的无回调登录。
 - (void)accountDidChange:(NSNotification *)notification {
-    AppAccountService *account = notification.object;
-    if (account.userId.length) {
-        [self.SDK notifyLoginSuccess];
-    } else {
-        [self refreshHostIdentity];
-    }
+    [self refreshHostIdentity];
 }
 
 - (BOOL)configureWithConfiguration:(XYBookAudioConfiguration *)configuration error:(NSError **)error {

@@ -27,7 +27,8 @@ FOUNDATION_EXPORT NSString *const AppBookAudioServiceEventParametersKey;
 /// 未初始化时返回 nil；读取已有会话快照不创建播放器或页面。
 - (nullable NSDictionary *)playbackSnapshot;
 
-/// 账号变更通知自动触发身份刷新；也可由宿主主动调用。未初始化时不创建 SDK，下次读取最新身份。
+/// 刷新身份并继续等待中的无回调登录。账号变更通知自动触发，也可由宿主主动调用。
+/// 未初始化时不创建 SDK，下次初始化读取最新身份。
 - (void)refreshHostIdentity;
 
 /// 宿主其他播放器开始播放前调用，先同步让出听书的音频控制权。

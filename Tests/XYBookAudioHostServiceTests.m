@@ -269,10 +269,12 @@
     [self waitUntil:^BOOL {
         return navigation.viewControllers.count == 1 && navigation.transitionCoordinator == nil;
     }];
+    [self.service refreshHostIdentity];
     XCTAssertEqualObjects([self runJavaScript:@"return await call('xhSnckGetUserInfo');" web:web], @{});
     XCTAssertEqualObjects([self runJavaScript:@"return loginProfileSettled;" web:web], @NO);
 
     [AppAccountService.sharedInstance updateAuthenticatedUserId:@"external-user"];
+    [self.service refreshHostIdentity];
     XCTAssertEqualObjects([self runJavaScript:@"return (await loginProfile).id;" web:web], @"external-user");
 }
 

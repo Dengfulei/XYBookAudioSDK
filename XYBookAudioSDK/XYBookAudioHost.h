@@ -40,7 +40,7 @@ typedef NS_ENUM(NSInteger, XYBookAudioShareResult) {
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller
                        completion:(void (^)(XYBookAudioLoginResult result, NSError *_Nullable error))completion;
 
-/// 在给定页面上展示宿主登录。登录成功并保存账号后，由宿主账号模块调用 SDK 的 notifyLoginSuccess。
+/// 在给定页面上展示宿主登录。登录成功并保存账号后，由宿主账号模块调用 SDK 的 refreshHostIdentity。
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller;
 
 /// 为 xhGetSystemInfo 提供宿主自定义的系统资料与设备标识。

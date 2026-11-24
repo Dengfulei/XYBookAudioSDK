@@ -17,7 +17,7 @@
 
 /// 请求宿主登录；账号更新与超时由本模块管理，结果不直接定义 H5 回调。
 - (void)requestLoginFrom:(UIViewController *)presenter completion:(XYBookAudioCompletion)completion;
-- (void)notifyLoginSuccess;
+- (void)resumePendingLoginIfAuthenticated;
 /// 请求宿主分享菜单；参数不转成听书协议，保留宿主选择／取消的业务结果。
 - (void)showShareMenu:(NSDictionary *)parameters
             presenter:(UIViewController *)presenter

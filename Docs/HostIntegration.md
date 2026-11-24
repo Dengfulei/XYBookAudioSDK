@@ -93,7 +93,7 @@ if (![AppBookAudioService.sharedInstance configureWithConfiguration:configuratio
 
 - 打开时通过 `style` 指定全屏展示或 Push。两种方式均复用已有会话，同一时间只打开一组听书页面，重复打开返回 `BUSY`。
 - 页面销毁只移除自己的 `AppBookAudioServiceEventNotification` 监听，不调用 SDK `dispose` 或服务 `shutdown`。通知在主线程发送，`object` 是服务实例，字段使用公开的 `AppBookAudioServiceEventNameKey`、`AppBookAudioServiceEventParametersKey`。
-- 账号登录、退出和切换由 `AppAccountService` 完成，先提交状态，再发送 `AppAccountDidChangeNotification`。`AppBookAudioService` 监听通知，账号可用时调用 `notifyLoginSuccess`，退出时调用 `refreshHostIdentity`。`bookAudioUserIdentity` 每次读取宿主账号。
+- 账号登录、退出和切换由 `AppAccountService` 完成，先提交状态，再发送 `AppAccountDidChangeNotification`。`AppBookAudioService` 监听通知并统一调用 `refreshHostIdentity`。`bookAudioUserIdentity` 每次读取宿主账号。
 - 其他播放器启动前调用 `yieldPlayback`。要停止听书播放，调用 `stopPlayback`。两者都保留 SDK 实例。
 - 明确结束听书服务用 `shutdown`，释放会话与事件订阅，同时保留最近成功配置及宿主账号。等待已有容器关闭后，可直接再次打开，或重新配置入口。未初始化时 `playbackSnapshot` 返回 `nil`。
 
@@ -164,7 +164,7 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 |---|---|
 | `bookAudioUserIdentity` | 返回身份对象；游客用 `[[XYBookAudioIdentity alloc] initWithUserId:nil]`。不得返回 token、密码、完整用户资料。 |
 | `bookAudioRequestLoginFrom:completion:` | 有登录结果回调时使用。展示登录页，保存账号后回调 `XYBookAudioLoginLoggedIn`，取消或失败时回调对应结果。 |
-| `bookAudioRequestLoginFrom:` | 只能拉起登录页时使用。登录成功并保存账号后，由宿主账号模块独立调用 `[sdk notifyLoginSuccess]`。 |
+| `bookAudioRequestLoginFrom:` | 只能拉起登录页时使用。登录成功并保存账号后，由宿主账号模块独立调用 `[sdk refreshHostIdentity]`。 |
 | `bookAudioShare:from:completion:` | 接收标准分享参数；accepted 表示已选择渠道，cancelled 表示取消，不承诺平台成功。 |
 | `bookAudioUserInfoWithParameters:completion:` | 可选。`xhSnckGetUserInfo` 在已登录时调用。接收完整请求参数，宿主校验自定义参数、处理票据并定义返回字段。SDK 原样回传非空 JSON 字典。 |
 | `bookAudioUserInfoUsingTicket:completion:` | 可选。旧版资料接口，在宿主未实现完整参数方法时调用。`useTicket: true` 时由宿主刷新票据。两个资料方法均缺失时返回 `UNSUPPORTED`。 |
@@ -176,9 +176,9 @@ Swift 同样在初始化前设置：`configuration.logLevel = .debug`，关闭�
 
 接入登录时选择一个登录方法。两者均实现时，SDK 优先调用带 completion 的方法，并等待该 completion 结算。两个方法均省略时，需要拉起登录的请求返回 `UNSUPPORTED`。
 
-无 completion 模式下，账号模块在主线程调用 `[sdk notifyLoginSuccess]`，此时 `bookAudioUserIdentity` 应已能读取登录后的账号。SDK 刷新身份，并用原始 `xhSnckGetUserInfo` 的完整参数查询宿主资料，通过原请求的 `callbackActionName` 回传。收到通知时身份仍为游客，SDK 会继续等待。两种方式共用 180 秒登录超时，超时后待处理的 `xhSnckGetUserInfo` 按游客回传 `{}`。SDK 对重复通知和迟到结果只结算一次。
+登录、退出或切换账号的状态提交后，在主线程统一调用 `[sdk refreshHostIdentity]`。无 completion 模式下，SDK 读到已登录身份后，用原始 `xhSnckGetUserInfo` 的完整参数查询宿主资料，通过原请求的 `callbackActionName` 回传。身份仍为游客时，SDK 会继续等待。两种方式共用 180 秒登录超时，超时后待处理的 `xhSnckGetUserInfo` 按游客回传 `{}`。SDK 对重复刷新和迟到结果只结算一次。
 
-退出或切换账号后调用 `refreshHostIdentity`。带 completion 的登录流程会重新读取宿主身份。身份变化时，SDK 会停止播放、取消定时和待处理的播放请求，并释放系统音频及锁屏控制。原生队列保留章节和原身份断点，旧付费音源会被撤销。每次播放或恢复时，SDK 都会重新读取身份。分享由宿主调用 completion 结算，SDK 会拦截重复结果并在 180 秒超时后释放 `xhShowShareMenu` 请求占用。
+带 completion 的登录流程仍由 completion 结算，并重新读取宿主身份。身份变化时，SDK 会停止播放、取消定时和待处理的播放请求，并释放系统音频及锁屏控制。原生队列保留章节和原身份断点，旧付费音源会被撤销。每次播放或恢复时，SDK 都会重新读取身份。分享由宿主调用 completion 结算，SDK 会拦截重复结果并在 180 秒超时后释放 `xhShowShareMenu` 请求占用。
 
 其他音频业务开始前调用 `yieldPlayback`，完成后再激活自身会话。此调用保留队列与定时器，听书不会自动抢回。`Stop` 清除定时器并保存位置；`Dispose` 还释放页面、观察者和事件订阅，实例不可再用。
 

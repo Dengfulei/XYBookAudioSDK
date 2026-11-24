@@ -852,7 +852,7 @@
     [self closeUserInfoTestPage];
 }
 
-- (void)testSnckUserInfoWaitsForSavedLoginNotificationAndRepliesOnce {
+- (void)testSnckUserInfoWaitsForSavedIdentityAndRepliesOnce {
     XYBookAudioNotificationLoginTestHost *host = [XYBookAudioNotificationLoginTestHost new];
     [self useUserInfoTestHost:host];
     WKWebView *web = [self openUserInfoTestPage];
@@ -877,15 +877,15 @@
                         web:web];
     XCTAssertEqual(host.loginRequestCount, 1);
 
-    [self.SDK notifyLoginSuccess];
+    [self.SDK refreshHostIdentity];
     NSArray *earlyReplies = [self runUserInfoScript:@"await call('xhGetSystemInfo'); return loginReplies;" arguments:@{}
                                                 web:web];
     XCTAssertEqualObjects(earlyReplies, @[]);
     XCTAssertEqual(host.userInfoRequestCount, 0);
 
     host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"notification-user"];
-    [self.SDK notifyLoginSuccess];
-    [self.SDK notifyLoginSuccess];
+    [self.SDK refreshHostIdentity];
+    [self.SDK refreshHostIdentity];
     NSDictionary *result = [self runUserInfoScript:@"await loginReply;"
                                                     "const ready = await call('xhSnckReady');"
                                                     "return {replies: loginReplies, user: ready.userState.user};"
@@ -913,8 +913,10 @@
     for (NSNumber *outcome in @[ @(XYBookAudioLoginCancelled), @(XYBookAudioLoginFailed) ]) {
         XCTestExpectation *settled = [self expectationWithDescription:@"complete host login"];
         settled.assertForOverFulfill = YES;
+        __block BOOL didSettle = NO;
         [self.SDK executeAction:@"xhSnckGetUserInfo" parameters:@{@"goLogin" : @YES}
                      completion:^(NSDictionary *result, NSError *error) {
+                         didSettle = YES;
                          XCTAssertNil(error);
                          XCTAssertEqualObjects(result, @{});
                          [settled fulfill];
@@ -926,8 +928,9 @@
         }
         if (outcome.integerValue == XYBookAudioLoginCancelled) {
             host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"saved-user"];
-            [self.SDK notifyLoginSuccess];
+            [self.SDK refreshHostIdentity];
             [self runUserInfoScript:@"return await call('xhGetSystemInfo');" arguments:@{} web:web];
+            XCTAssertFalse(didSettle);
             XCTAssertEqual(host.userInfoRequestCount, 0);
             host.identity = [[XYBookAudioIdentity alloc] initWithUserId:nil];
         }
@@ -939,7 +942,7 @@
     [self closeUserInfoTestPage];
 }
 
-- (void)testDisposeSettlesPendingNotificationLoginOnce {
+- (void)testDisposeSettlesPendingLoginWithoutHostCallbackOnce {
     XYBookAudioNotificationLoginTestHost *host = [XYBookAudioNotificationLoginTestHost new];
     [self useUserInfoTestHost:host];
     if (![self openUserInfoTestPage]) {
@@ -958,7 +961,7 @@
     XCTAssertEqual(host.loginRequestCount, 1);
     [self.SDK dispose];
     host.identity = [[XYBookAudioIdentity alloc] initWithUserId:@"late-user"];
-    [self.SDK notifyLoginSuccess];
+    [self.SDK refreshHostIdentity];
     [self.SDK dispose];
     [self waitForExpectations:@[ settled ] timeout:2];
     XCTAssertEqual(host.userInfoRequestCount, 0);

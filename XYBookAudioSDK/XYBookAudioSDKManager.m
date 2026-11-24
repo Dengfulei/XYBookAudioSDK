@@ -63,7 +63,10 @@ static NSString *const XYBookAudioCommandUnsubscribe = @"Unsubscribe";
             }
         };
         _hostActions.identityChanged = ^{
-            [weakSelf refreshHostIdentity];
+            XYBookAudioSDKManager *SDK = weakSelf;
+            if (!SDK.disposed) {
+                [SDK.session refreshIdentity];
+            }
         };
     }
     [_logger write:XYBookAudioLogLevelInfo component:XYBookAudioLogSDK message:@"SDK initialized."];
@@ -284,15 +287,8 @@ static NSString *const XYBookAudioCommandUnsubscribe = @"Unsubscribe";
 
 - (void)refreshHostIdentity {
     NSParameterAssert(NSThread.isMainThread);
-    if (!self.disposed) {
-        [self.session refreshIdentity];
-    }
-}
-
-- (void)notifyLoginSuccess {
-    NSParameterAssert(NSThread.isMainThread);
-    if (!self.disposed) {
-        [self.hostActions notifyLoginSuccess];
+    if (!self.disposed && [self.session refreshIdentity]) {
+        [self.hostActions resumePendingLoginIfAuthenticated];
     }
 }
 
