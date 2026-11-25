@@ -66,7 +66,7 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
 
 - (instancetype)init {
     if ((self = [super init])) {
-        _removesWeChatRedirectURL = YES;
+        _removesWeChatRedirectURL = NO;
     }
     return self;
 }
