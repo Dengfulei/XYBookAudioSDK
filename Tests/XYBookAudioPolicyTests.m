@@ -23,8 +23,15 @@
 @implementation XYBookAudioPaymentTestAction
 @end
 
+@interface XYBookAudioPaymentTestHistoryItem : NSObject
+@property (nonatomic, strong) NSURL *URL;
+@end
+
+@implementation XYBookAudioPaymentTestHistoryItem
+@end
+
 @interface XYBookAudioPaymentTestHistory : NSObject
-@property (nonatomic, strong) id currentItem;
+@property (nonatomic, strong) XYBookAudioPaymentTestHistoryItem *currentItem;
 @end
 
 @implementation XYBookAudioPaymentTestHistory
@@ -54,6 +61,7 @@
 @end
 
 @implementation XYBookAudioPaymentTestPage
+
 - (BOOL)isPaymentCheckoutAction:(WKNavigationAction *)action {
     NSURL *entry = [self valueForKey:@"entryURL"];
     return action.sourceFrame.isMainFrame &&
@@ -90,7 +98,7 @@
     XYBookAudioPaymentTestWebView *webView = [[XYBookAudioPaymentTestWebView alloc] initWithFrame:CGRectZero
                                                                     configuration:[WKWebViewConfiguration new]];
     webView.history = [XYBookAudioPaymentTestHistory new];
-    webView.history.currentItem = [NSObject new];
+    webView.history.currentItem = [XYBookAudioPaymentTestHistoryItem new];
     [page setValue:webView forKey:@"webView"];
 
     XYBookAudioPaymentTestAction *action = [XYBookAudioPaymentTestAction new];
@@ -190,7 +198,7 @@
     }
 }
 
-- (void)testWeChatGatewayCanKeepRedirectAndUsesPreferredReferer {
+- (void)testWeChatReferenceUsesRedirectHostWhenItCannotTakeOverTheReturn {
     NSURL *entry = [NSURL URLWithString:@"https://merchant.example/checkout"];
     XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
                                                                                               entryURL:entry];
@@ -199,8 +207,8 @@
     payment.removesWeChatRedirectURL = NO;
     configuration.payment = payment;
     NSString *base = @"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?sign=abc%2bdef"
-                      "&redirect_url=https%3A%2F%2Fmerchant.example%2Fcheckout%23%2Fresult%3FpayOrder%3D123"
-                      "&referer=merchant.web%3A%2F%2F";
+                      "&redirect_url=https%3A%2F%2Flegacy.example%2Fcheckout"
+                      "&referer=https%3A%2F%2Fmerchant.web%2Fcashier";
     NSArray<NSString *> *appReferers = @[ @"merchant.app%3A%2F%2F", @"invalid%0D%0Aheader", @"" ];
     for (NSString *appReferer in appReferers) {
         NSURL *URL = [NSURL URLWithString:[base stringByAppendingFormat:@"&appReferer=%@", appReferer]];
@@ -210,9 +218,47 @@
                                                        configuration:configuration
                                                            returnURL:&returnURL];
         XCTAssertEqualObjects(reload.URL.absoluteString, URL.absoluteString);
-        XCTAssertEqualObjects(returnURL.absoluteString, @"https://merchant.example/checkout#/result?payOrder=123");
+        XCTAssertNil(returnURL);
         XCTAssertEqualObjects([reload valueForHTTPHeaderField:@"Referer"],
-                              [appReferer hasPrefix:@"merchant"] ? @"merchant.app://" : @"merchant.web://");
+                              [appReferer hasPrefix:@"merchant"] ? @"merchant.app://" : @"legacy.example://");
+    }
+}
+
+- (void)testWeChatReferenceNormalizesRefererForTheSameGateway {
+    NSURL *entry = [NSURL URLWithString:@"https://merchant.example/checkout"];
+    XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
+                                                                                              entryURL:entry];
+    XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
+    payment.wechatReturnScheme = @"merchant.wechat";
+    configuration.payment = payment;
+
+    NSString *gatewayWithoutRedirect =
+        @"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?token=test&sign=abc%2bdef%2F%3D"
+         "&referer=https%3A%2F%2Fref.example"
+         "&appReferer=https%253A%252F%252Fapp.example%252F%25E6%2594%25AF%25E4%25BB%2598";
+    NSURL *gateway = [NSURL
+        URLWithString:
+            [gatewayWithoutRedirect
+                stringByAppendingString:
+                    @"&redirect_url=https%3A%2F%2Fmerchant.example%2Fcheckout%23%2F%3FhideTopView%3D1%26payOrder%3Dtest"]];
+    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:gateway];
+    [request setValue:@"fixture" forHTTPHeaderField:@"X-Checkout"];
+    request.timeoutInterval = 23;
+
+    for (NSNumber *usesSDKFlow in @[ @YES, @NO ]) {
+        configuration.payment.removesWeChatRedirectURL = usesSDKFlow.boolValue;
+        NSURL *returnURL;
+        NSURLRequest *reload = [XYBookAudioPaymentLinks wechatGatewayRequestFromRequest:request
+                                                                          configuration:configuration
+                                                                              returnURL:&returnURL];
+        XCTAssertEqualObjects(reload.URL.absoluteString, gatewayWithoutRedirect);
+        XCTAssertEqualObjects([reload valueForHTTPHeaderField:@"X-Checkout"], @"fixture");
+        XCTAssertEqual(reload.timeoutInterval, usesSDKFlow.boolValue ? 23 : 60);
+        XCTAssertEqualObjects([reload valueForHTTPHeaderField:@"Referer"],
+                              usesSDKFlow.boolValue ? @"https%3A%2F%2Fapp.example%2F%E6%94%AF%E4%BB%98"
+                                                    : @"app.example://");
+        XCTAssertEqualObjects(returnURL.absoluteString,
+                              @"https://merchant.example/checkout#/?hideTopView=1&payOrder=test");
     }
 }
 
@@ -235,15 +281,9 @@
     [window addSubview:page.view];
     XYBookAudioPaymentTestWebView *webView =
         [[XYBookAudioPaymentTestWebView alloc] initWithFrame:CGRectZero configuration:[WKWebViewConfiguration new]];
-    webView.history = [XYBookAudioPaymentTestHistory new];
-    webView.history.currentItem = [NSObject new];
     [page setValue:webView forKey:@"webView"];
 
     XYBookAudioPaymentTestAction *action = [XYBookAudioPaymentTestAction new];
-    action.sourceFrame = [XYBookAudioPaymentTestFrame new];
-    action.targetFrame = [XYBookAudioPaymentTestFrame new];
-    action.sourceFrame.mainFrame = YES;
-    action.targetFrame.mainFrame = YES;
     void (^decide)(WKNavigationActionPolicy) = ^(WKNavigationActionPolicy expected) {
         [(id<WKNavigationDelegate>)page webView:webView decidePolicyForNavigationAction:(WKNavigationAction *)action
                                 decisionHandler:^(WKNavigationActionPolicy policy) {
@@ -255,13 +295,12 @@
             [NSString stringWithFormat:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?prepay_id=%@"
                                         "&redirect_url=https%%3A%%2F%%2Fmerchant.example%%2Fcheckout%%3FpayOrder%%3D%@",
                                        order, order];
-        action.sourceFrame.request = [NSURLRequest requestWithURL:checkout];
         action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:link]];
         decide(WKNavigationActionPolicyCancel);
-        XCTAssertEqualObjects(webView.loadedRequest.URL.absoluteString, link);
+        XCTAssertEqualObjects(webView.loadedRequest.URL.absoluteString,
+                              [link componentsSeparatedByString:@"&"].firstObject);
         action.request = webView.loadedRequest;
         decide(WKNavigationActionPolicyAllow);
-        action.sourceFrame.request = webView.loadedRequest;
         action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"weixin://wap/pay"]];
         decide(WKNavigationActionPolicyCancel);
         XCTAssertNotNil(page.openCompletion);
@@ -279,18 +318,89 @@
     startPayment(@"old");
     void (^oldCompletion)(BOOL) = page.openCompletion;
     startPayment(@"next");
-    oldCompletion(YES);
-    returnToScene();
+    oldCompletion(NO);
+    [NSNotificationCenter.defaultCenter postNotificationName:UISceneDidActivateNotification object:scene];
     XCTAssertEqual(webView.loadCount, 3u);
+    returnToScene();
+    XCTAssertEqual(webView.loadCount, 4u);
     page.openCompletion(YES);
     XCTAssertEqual(webView.loadCount, 4u);
     XCTAssertEqualObjects(webView.loadedRequest.URL.absoluteString, @"https://merchant.example/checkout?payOrder=next");
+
+    action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"weixin://wap/pay?token=direct"]];
+    decide(WKNavigationActionPolicyCancel);
+    XCTAssertEqualObjects(page.openedURL, action.request.URL);
+    XCTAssertNil(page.openCompletion);
 
     startPayment(@"closed");
     [page invalidatePage];
     page.openCompletion(YES);
     returnToScene();
     XCTAssertEqual(webView.loadCount, 5u);
+    [page.view removeFromSuperview];
+}
+
+- (void)testWeChatReferenceWithoutRedirectClearsThePreviousReturn {
+    NSURL *checkout = [NSURL URLWithString:@"https://merchant.example/checkout"];
+    XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
+                                                                                              entryURL:checkout];
+    XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
+    payment.wechatReturnScheme = @"merchant.wechat";
+    payment.removesWeChatRedirectURL = NO;
+    configuration.payment = payment;
+    XYBookAudioPaymentTestPage *page = [[XYBookAudioPaymentTestPage alloc] initWithSDK:nil configuration:configuration
+                                                                              entryURL:checkout
+                                                                          windowRouter:nil
+                                                                                logger:nil];
+    UIWindow *window = UIApplication.sharedApplication.delegate.window;
+    XCTAssertNotNil(window.windowScene);
+    page.view = [UIView new];
+    [window addSubview:page.view];
+    XYBookAudioPaymentTestWebView *webView =
+        [[XYBookAudioPaymentTestWebView alloc] initWithFrame:CGRectZero configuration:[WKWebViewConfiguration new]];
+    [page setValue:webView forKey:@"webView"];
+
+    XYBookAudioPaymentTestAction *action = [XYBookAudioPaymentTestAction new];
+    void (^decide)(WKNavigationActionPolicy) = ^(WKNavigationActionPolicy expected) {
+        [(id<WKNavigationDelegate>)page webView:webView decidePolicyForNavigationAction:(WKNavigationAction *)action
+                                decisionHandler:^(WKNavigationActionPolicy policy) {
+                                    XCTAssertEqual(policy, expected);
+                                }];
+    };
+    NSURL *previous =
+        [NSURL URLWithString:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?prepay_id=previous"
+                              "&redirect_url=https%3A%2F%2Fmerchant.example%2Fcheckout%3FpayOrder%3Dprevious"];
+    action.request = [NSURLRequest requestWithURL:previous];
+    decide(WKNavigationActionPolicyCancel);
+
+    NSString *base = @"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?prepay_id=next"
+                      "&sign=abc%2b%2F%3D&package=one%2520";
+    NSArray<NSArray<NSString *> *> *cases = @[
+        @[ @"&appReferer=https%3A%2F%2Fapp.example&referer=https%3A%2F%2Fweb.example", @"app.example://" ],
+        @[ @"&referer=https%3A%2F%2Fweb.example", @"web.example://" ],
+        @[ @"", @"merchant.wechat://" ],
+    ];
+    for (NSArray<NSString *> *testCase in cases) {
+        NSURL *gateway = [NSURL URLWithString:[base stringByAppendingString:testCase[0]]];
+        NSUInteger loadsBeforePay = webView.loadCount;
+        NSUInteger launchesBeforePay = page.openCount;
+        action.request = [NSURLRequest requestWithURL:gateway];
+        decide(WKNavigationActionPolicyCancel);
+        XCTAssertEqualObjects(webView.loadedRequest.URL.absoluteString, gateway.absoluteString);
+        XCTAssertEqualObjects([webView.loadedRequest valueForHTTPHeaderField:@"Referer"], testCase[1]);
+
+        action.request = webView.loadedRequest;
+        decide(WKNavigationActionPolicyAllow);
+        action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"weixin://wap/pay"]];
+        decide(WKNavigationActionPolicyCancel);
+        XCTAssertEqual(page.openCount, launchesBeforePay + 1);
+        XCTAssertNil(page.openCompletion);
+        [NSNotificationCenter.defaultCenter postNotificationName:UISceneDidEnterBackgroundNotification
+                                                          object:window.windowScene];
+        [NSNotificationCenter.defaultCenter postNotificationName:UISceneDidActivateNotification
+                                                          object:window.windowScene];
+        XCTAssertEqual(webView.loadCount, loadsBeforePay + 1);
+    }
     [page.view removeFromSuperview];
 }
 

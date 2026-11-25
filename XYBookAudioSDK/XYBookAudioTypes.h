@@ -78,7 +78,13 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 
 /// 宿主注册的微信支付回跳 Scheme（不带 `://`），用于构造微信中转请求的缺省 `Referer`。
 @property (nonatomic, copy, nullable) NSString *wechatReturnScheme;
-/// 默认 YES，从微信中转请求移除唯一且可信的 `redirect_url`。设为 NO 时保留参数，回到 App 后仍可加载该地址。
+/// 配置 `wechatReturnScheme` 后，控制 H5 微信支付的发起方式和中转请求的 `Referer`。
+/// 默认 `YES`，从可信 HTTPS 收银台入口页发起支付，依次尝试使用 `appReferer`、`referer` 的解码值。
+/// 设为 `NO` 时，可直接处理微信支付链接，并支持将上述参数中的 URL 主机名转换为 `主机名://`。
+/// 此模式无法接管回跳时，会在尝试 `referer` 前先尝试 `redirect_url` 的主机名。
+/// 两种模式找不到可用的 `Referer` 时，均使用 `wechatReturnScheme` 拼接 `://`。
+/// 两种模式均会保存唯一且通过信任校验的 HTTPS `redirect_url`，并从中转请求移除该参数。
+/// 拉起微信后，App 回到前台时会在原 WebView 加载保存的地址。
 @property (nonatomic) BOOL removesWeChatRedirectURL;
 /// 宿主注册的支付宝支付回跳 Scheme（不带 `://`），用于 `SafePay` 链接的 `fromAppUrlScheme`。
 @property (nonatomic, copy, nullable) NSString *alipayReturnScheme;

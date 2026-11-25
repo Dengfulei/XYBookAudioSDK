@@ -43,32 +43,53 @@
 + (NSURLRequest *)wechatGatewayRequestFromRequest:(NSURLRequest *)request
                                     configuration:(XYBookAudioConfiguration *)configuration
                                         returnURL:(NSURL **)returnURL {
-    *returnURL = nil;
     NSURLComponents *components = [NSURLComponents componentsWithURL:request.URL resolvingAgainstBaseURL:NO];
     NSArray<NSURLQueryItem *> *items = components.queryItems;
-    NSMutableURLRequest *reload = [request mutableCopy];
+    BOOL usesSDKFlow = configuration.payment.removesWeChatRedirectURL;
+    NSMutableURLRequest *reload =
+        usesSDKFlow ? [request mutableCopy] : [NSMutableURLRequest requestWithURL:request.URL];
+    if (!usesSDKFlow) {
+        reload.allHTTPHeaderFields = request.allHTTPHeaderFields;
+    }
     NSURL *rewrittenURL = [self wechatGatewayURLFromComponents:components queryItems:items configuration:configuration
                                                      returnURL:returnURL];
     if (rewrittenURL) {
         reload.URL = rewrittenURL;
     }
-    for (NSString *name in @[ @"appReferer", @"referer" ]) {
+    NSString *referer = [self wechatRefererForQueryItems:items hasTrustedReturn:*returnURL != nil
+                                                 payment:configuration.payment];
+    [reload setValue:referer forHTTPHeaderField:@"Referer"];
+    return reload;
+}
+
++ (NSString *)wechatRefererForQueryItems:(NSArray<NSURLQueryItem *> *)items
+                        hasTrustedReturn:(BOOL)hasTrustedReturn
+                                 payment:(XYBookAudioPaymentConfiguration *)payment {
+    BOOL usesSDKFlow = payment.removesWeChatRedirectURL;
+    // feature-11 无法接管回跳时，会在 referer 之前尝试用 redirect_url 的主机名。
+    NSArray<NSString *> *refererParameters = @[ @"appReferer", @"referer" ];
+    if (!usesSDKFlow && !hasTrustedReturn) {
+        refererParameters = @[ @"appReferer", @"redirect_url", @"referer" ];
+    }
+    for (NSString *name in refererParameters) {
         for (NSURLQueryItem *item in items) {
-            if ([item.name isEqualToString:name] && [self isUsableReferer:item.value]) {
-                [reload setValue:item.value forHTTPHeaderField:@"Referer"];
-                return reload;
+            if (![item.name isEqualToString:name]) {
+                continue;
+            }
+            NSString *referer = usesSDKFlow ? item.value : [self wechatSchemeRefererFromValue:item.value];
+            if ([self isUsableReferer:referer]) {
+                return referer;
             }
         }
     }
-    [reload setValue:[configuration.payment.wechatReturnScheme stringByAppendingString:@"://"]
-        forHTTPHeaderField:@"Referer"];
-    return reload;
+    return [payment.wechatReturnScheme stringByAppendingString:@"://"];
 }
 
 + (nullable NSURL *)wechatGatewayURLFromComponents:(NSURLComponents *)components
                                         queryItems:(NSArray<NSURLQueryItem *> *)items
                                      configuration:(XYBookAudioConfiguration *)configuration
                                          returnURL:(NSURL **)returnURL {
+    *returnURL = nil;
     NSUInteger redirectIndex = NSNotFound;
     for (NSUInteger index = 0; index < items.count; index++) {
         if ([items[index].name isEqualToString:@"redirect_url"]) {
@@ -96,18 +117,45 @@
     if (![destination.scheme.lowercaseString isEqualToString:@"https"] || ![configuration allowsURL:destination]) {
         return nil;
     }
-    *returnURL = destination;
-    if (!configuration.payment.removesWeChatRedirectURL) {
-        return nil;
-    }
-
     // 用解码后的参数定位，直接从原始查询移除，避免重新编码微信的签名参数。
     NSMutableArray<NSString *> *rawItems =
         [[components.percentEncodedQuery componentsSeparatedByString:@"&"] mutableCopy];
     [rawItems removeObjectAtIndex:redirectIndex];
     components.percentEncodedQuery = [rawItems componentsJoinedByString:@"&"];
     NSURL *rewritten = components.URL;
-    return [self typeForURL:rewritten] == XYBookAudioPaymentLinkTypeWeChatGateway ? rewritten : nil;
+    if ([self typeForURL:rewritten] != XYBookAudioPaymentLinkTypeWeChatGateway) {
+        return nil;
+    }
+    *returnURL = destination;
+    return rewritten;
+}
+
++ (nullable NSString *)wechatSchemeRefererFromValue:(nullable NSString *)value {
+    if (!value.length) {
+        return nil;
+    }
+    NSURLComponents *components = [NSURLComponents componentsWithString:value];
+    if (!components.scheme.length) {
+        // 部分收银台对 Referer 地址额外编码了一次。
+        value = value.stringByRemovingPercentEncoding;
+        components = value.length ? [NSURLComponents componentsWithString:value] : nil;
+    }
+    if (!components.scheme.length || ![self isUsableReferer:value]) {
+        return nil;
+    }
+
+    NSString *host = components.host.lowercaseString;
+    if (host.length) {
+        NSString *referer = [host stringByAppendingString:@"://"];
+        return [[NSURLComponents componentsWithString:referer].scheme isEqualToString:host] ? referer : nil;
+    }
+    NSString *scheme = components.scheme.lowercaseString;
+    if ([scheme isEqualToString:@"http"] || [scheme isEqualToString:@"https"]) {
+        return nil;
+    }
+    return [value isEqualToString:[components.scheme stringByAppendingString:@"://"]]
+               ? [scheme stringByAppendingString:@"://"]
+               : nil;
 }
 
 + (BOOL)isUsableReferer:(nullable NSString *)referer {

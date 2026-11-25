@@ -6,6 +6,7 @@
 //
 
 #import "SceneDelegate.h"
+#import <XYBookAudioSDK/XYBookAudioTypes.h>
 
 @interface SceneDelegate ()
 
@@ -32,6 +33,18 @@
     // 场景从非活跃状态恢复为活跃状态后调用。
     // 可在此恢复因场景非活跃而暂停或延迟启动的任务。
 }
+
+#if DEBUG
+- (void)scene:(UIScene *)scene openURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
+    NSString *wechatScheme = [XYBookAudioPaymentConfiguration hostURLSchemeForName:@"weixinScheme"].lowercaseString;
+    for (UIOpenURLContext *context in URLContexts) {
+        if ([context.URL.scheme.lowercaseString isEqualToString:wechatScheme]) {
+            NSLog(@"[XYBookAudio][Debug][Page] WeChat return scheme reached the Demo scene.");
+            break;
+        }
+    }
+}
+#endif
 
 - (void)sceneWillResignActive:(UIScene *)scene {
     // 场景即将从活跃状态切换为非活跃状态时调用。

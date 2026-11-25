@@ -10,15 +10,17 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 `entryURL` 为 HTTPS 线上入口。`trustedOrigins` 是精确 origin（scheme、host、可选端口），`allowedPathPrefixes` 按路径段边界校验，不做字符串包含匹配。远程页面不能提供本地文件音源。
 
-内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`，支付从可信 HTTPS 入口页发起。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。
+内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。
 
-微信中转请求的 `Referer` 优先取中转链接的 `appReferer` 参数，其次取 `referer` 参数，缺省时使用 `wechatReturnScheme` 拼接 `://`。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
+微信支付流程由 `payment.removesWeChatRedirectURL` 选择。默认 `YES` 沿用 SDK 原有流程，从可信 HTTPS 入口页发起，中转请求优先使用 `appReferer`、`referer` 的解码值。设为 `NO` 时使用 feature-11 流程，把选定的 Referer URL 主机名拼接为 `主机名://`。此模式无法接管回跳时按 `appReferer`、`redirect_url`、`referer` 的顺序选择。两个模式缺省时均使用 `wechatReturnScheme` 拼接 `://`。最终使用的 Scheme 需在宿主 App 注册。
 
 宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 
-启用微信回跳 Scheme 后，SDK 从微信中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 和 `allowedPathPrefixes` 校验 HTTPS 地址。默认从中转请求移除通过校验的参数，保留其他参数的顺序和编码。宿主可将 `payment.removesWeChatRedirectURL` 设为 `NO`，使中转请求携带原始 `redirect_url`，同时保留 App 侧回跳处理。缺少有效可信地址时，中转 URL 原样使用。
+两个微信支付流程均从中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 和 `allowedPathPrefixes` 校验 HTTPS 地址。中转请求只移除通过校验的回跳参数，保留其他参数的顺序和编码。缺少有效可信地址时，中转 URL 原样使用。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
 
 微信成功拉起后，发起支付的场景先进入后台、再恢复活跃时，SDK 在原 WebView 加载保存的完整地址一次，保留查询参数和 `#/` 路由。H5 使用 `payOrder` 向后端确认支付结果。
+
+`NO` 模式下，中转请求缺少 `redirect_url` 时仍按原 URL 重发并拉起微信。此时 `Referer` 依次使用 `appReferer`、`referer` 和宿主微信 Scheme。App 回到前台时继续使用原 WebView，只有保存了可信地址才会额外导航。
 
 开发联调可显式传入 `fileURL`：SDK 使用 `loadFileURL:allowingReadAccessToURL:`，页面和音频限制在入口文件所在目录，解析符号链接后再次检查。此能力用于本地测试；生产 H5 和业务资源仍由宿主配置。
 
