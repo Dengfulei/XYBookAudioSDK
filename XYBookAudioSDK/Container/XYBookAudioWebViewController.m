@@ -6,6 +6,12 @@
 
 #import "XYBookAudioLogger.h"
 
+typedef NS_ENUM(NSUInteger, XYBookAudioWeChatReturnPhase) {
+    XYBookAudioWeChatReturnAwaitingBackground,
+    XYBookAudioWeChatReturnAwaitingActivation,
+    XYBookAudioWeChatReturnActivated,
+};
+
 @interface XYBookAudioWebViewController () <WKNavigationDelegate, WKUIDelegate>
 
 @property (nonatomic, strong) XYBookAudioLogger *logger;
@@ -24,7 +30,12 @@
 @property (nonatomic, strong) XYBookAudioUserAgent *userAgentProvider;
 // 有原收银台历史项时，微信中转流程仍在进行。
 @property (nonatomic, strong) WKBackForwardListItem *wechatCheckoutItem;
-@property (nonatomic, strong) NSURL *wechatReloadURL;
+@property (nonatomic, strong) NSURL *wechatGatewayURL;
+@property (nonatomic) BOOL wechatGatewayReloadPending;
+@property (nonatomic, strong) NSURL *wechatReturnURL;
+@property (nonatomic, strong) NSObject *wechatLaunchToken;
+@property (nonatomic) BOOL wechatLaunchSucceeded;
+@property (nonatomic) XYBookAudioWeChatReturnPhase wechatReturnPhase;
 
 @end
 
@@ -124,6 +135,7 @@
     if (self.closing || self.userAgentProvider) {
         return;
     }
+    [self clearWeChatPayment];
     self.retryButton.hidden = YES;
     self.webView.hidden = NO;
     [self.spinner startAnimating];
@@ -297,18 +309,24 @@
         decide(WKNavigationActionPolicyCancel);
         return YES;
     }
-    if (type == XYBookAudioPaymentLinkTypeWeChatGateway && [self.wechatReloadURL isEqual:URL] && action.targetFrame) {
-        self.wechatReloadURL = nil;
+    if (type == XYBookAudioPaymentLinkTypeWeChatGateway && self.wechatGatewayReloadPending &&
+        [self.wechatGatewayURL isEqual:URL] && action.targetFrame) {
+        self.wechatGatewayReloadPending = NO;
         decide(WKNavigationActionPolicyAllow);
         return YES;
     }
-    if (type == XYBookAudioPaymentLinkTypeWeChatGateway && payment.wechatReturnScheme && !self.wechatCheckoutItem &&
-        [request.HTTPMethod isEqualToString:@"GET"] && [self isPaymentCheckoutAction:action]) {
+    if (type == XYBookAudioPaymentLinkTypeWeChatGateway && payment.wechatReturnScheme &&
+        ![self.wechatGatewayURL isEqual:URL] && [request.HTTPMethod isEqualToString:@"GET"] &&
+        [self isPaymentCheckoutAction:action]) {
+        [self clearWeChatPayment];
         self.wechatCheckoutItem = webView.backForwardList.currentItem;
-        NSMutableURLRequest *reload = [request mutableCopy];
-        reload.URL = [XYBookAudioPaymentLinks wechatGatewayURLFromURL:URL removingReturnToEntryURL:self.configuration.entryURL];
-        self.wechatReloadURL = reload.URL;
-        [reload setValue:[payment.wechatReturnScheme stringByAppendingString:@"://"] forHTTPHeaderField:@"Referer"];
+        NSURL *returnURL;
+        NSURLRequest *reload = [XYBookAudioPaymentLinks wechatGatewayRequestFromRequest:request
+                                                                          configuration:self.configuration
+                                                                              returnURL:&returnURL];
+        self.wechatReturnURL = returnURL;
+        self.wechatGatewayURL = reload.URL;
+        self.wechatGatewayReloadPending = YES;
         decide(WKNavigationActionPolicyCancel);
         [webView loadRequest:reload];
         return YES;
@@ -317,19 +335,19 @@
     decide(WKNavigationActionPolicyCancel);
     if (type == XYBookAudioPaymentLinkTypeWeChatApp) {
         BOOL fromGateway = action.sourceFrame.isMainFrame &&
-            [XYBookAudioPaymentLinks typeForURL:action.sourceFrame.request.URL] == XYBookAudioPaymentLinkTypeWeChatGateway;
-        if (self.wechatCheckoutItem && !self.wechatReloadURL && (fromGateway || [self isPaymentCheckoutAction:action])) {
-            [self restoreWeChatCheckout];
-            [self openPaymentURL:URL];
+                           [self.wechatGatewayURL isEqual:action.sourceFrame.request.URL];
+        if (self.wechatCheckoutItem && !self.wechatGatewayReloadPending &&
+            (fromGateway || [self isPaymentCheckoutAction:action])) {
+            [self launchWeChatPayment:URL];
         }
         return YES;
     }
 
-    if (type == XYBookAudioPaymentLinkTypeAlipayApp && payment.alipayReturnScheme && !self.wechatCheckoutItem &&
-        [self isPaymentCheckoutAction:action]) {
+    if (type == XYBookAudioPaymentLinkTypeAlipayApp && payment.alipayReturnScheme && [self isPaymentCheckoutAction:action]) {
         NSURL *appURL = [XYBookAudioPaymentLinks alipayURLFromURL:URL withReturnScheme:payment.alipayReturnScheme];
         if (appURL) {
-            [self openPaymentURL:appURL];
+            [self clearWeChatPayment];
+            [self openPaymentURL:appURL completion:nil];
         } else {
             [self.logger write:XYBookAudioLogLevelWarning component:XYBookAudioLogPage
                        message:@"Invalid Alipay SafePay URL."];
@@ -338,8 +356,65 @@
     return YES;
 }
 
-- (void)openPaymentURL:(NSURL *)URL {
-    [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:nil];
+- (void)openPaymentURL:(NSURL *)URL completion:(void (^)(BOOL success))completion {
+    [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:completion];
+}
+
+- (void)launchWeChatPayment:(NSURL *)URL {
+    // 先恢复收银台历史项，回跳后从收银台打开业务页。
+    NSURL *returnURL = self.wechatReturnURL;
+    [self restoreWeChatCheckout];
+    if (!returnURL) {
+        [self openPaymentURL:URL completion:nil];
+        return;
+    }
+
+    NSObject *token = [NSObject new];
+    self.wechatReturnURL = returnURL;
+    self.wechatLaunchToken = token;
+    UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
+    id lifecycleSource = scene ?: (id)UIApplication.sharedApplication;
+    NSNotificationCenter *center = NSNotificationCenter.defaultCenter;
+    [center addObserver:self selector:@selector(wechatDidEnterBackground:)
+                   name:scene ? UISceneDidEnterBackgroundNotification : UIApplicationDidEnterBackgroundNotification
+                 object:lifecycleSource];
+    [center addObserver:self selector:@selector(wechatDidActivate:)
+                   name:scene ? UISceneDidActivateNotification : UIApplicationDidBecomeActiveNotification
+                 object:lifecycleSource];
+
+    __weak typeof(self) weakSelf = self;
+    [self openPaymentURL:URL completion:^(BOOL success) {
+        typeof(self) self = weakSelf;
+        if (self.wechatLaunchToken != token) {
+            return;
+        }
+        if (!success) {
+            [self clearWeChatPayment];
+            return;
+        }
+        self.wechatLaunchSucceeded = YES;
+        [self loadWeChatReturnURLIfReady];
+    }];
+}
+
+- (void)wechatDidEnterBackground:(NSNotification *)notification {
+    self.wechatReturnPhase = XYBookAudioWeChatReturnAwaitingActivation;
+}
+
+- (void)wechatDidActivate:(NSNotification *)notification {
+    if (self.wechatReturnPhase == XYBookAudioWeChatReturnAwaitingActivation) {
+        self.wechatReturnPhase = XYBookAudioWeChatReturnActivated;
+        [self loadWeChatReturnURLIfReady];
+    }
+}
+
+- (void)loadWeChatReturnURLIfReady {
+    if (!self.wechatLaunchSucceeded || self.wechatReturnPhase != XYBookAudioWeChatReturnActivated) {
+        return;
+    }
+    NSURL *returnURL = self.wechatReturnURL;
+    [self clearWeChatPayment];
+    [self.webView loadRequest:[NSURLRequest requestWithURL:returnURL]];
 }
 
 - (void)restoreWeChatCheckout {
@@ -354,8 +429,16 @@
 }
 
 - (void)clearWeChatPayment {
+    if (self.wechatLaunchToken) {
+        [NSNotificationCenter.defaultCenter removeObserver:self];
+    }
     self.wechatCheckoutItem = nil;
-    self.wechatReloadURL = nil;
+    self.wechatGatewayURL = nil;
+    self.wechatGatewayReloadPending = NO;
+    self.wechatReturnURL = nil;
+    self.wechatLaunchToken = nil;
+    self.wechatLaunchSucceeded = NO;
+    self.wechatReturnPhase = XYBookAudioWeChatReturnAwaitingBackground;
 }
 
 /// 用户取消导航不作为加载失败；其他错误经可配置日志记录域／码，页面显示统一重试提示。
@@ -384,6 +467,7 @@
 }
 
 - (void)dealloc {
+    [NSNotificationCenter.defaultCenter removeObserver:self];
     [self.userAgentProvider cancel];
     [self.webBridge invalidate];
     [self.webView removeJavascriptInterface];

@@ -1,4 +1,5 @@
 #import "XYBookAudioPaymentLinks.h"
+#import "XYBookAudioTypes.h"
 
 @implementation XYBookAudioPaymentLinks
 
@@ -39,22 +40,80 @@
            [(URL.path ?: @"") isEqualToString:(entryURL.path ?: @"")];
 }
 
-+ (NSURL *)wechatGatewayURLFromURL:(NSURL *)URL removingReturnToEntryURL:(NSURL *)entryURL {
-    NSURLComponents *components = [NSURLComponents componentsWithURL:URL resolvingAgainstBaseURL:NO];
-    if ([self typeForURLComponents:components] != XYBookAudioPaymentLinkTypeWeChatGateway) {
-        return URL;
++ (NSURLRequest *)wechatGatewayRequestFromRequest:(NSURLRequest *)request
+                                    configuration:(XYBookAudioConfiguration *)configuration
+                                        returnURL:(NSURL **)returnURL {
+    *returnURL = nil;
+    NSURLComponents *components = [NSURLComponents componentsWithURL:request.URL resolvingAgainstBaseURL:NO];
+    NSArray<NSURLQueryItem *> *items = components.queryItems;
+    NSMutableURLRequest *reload = [request mutableCopy];
+    NSURL *rewrittenURL = [self wechatGatewayURLFromComponents:components queryItems:items configuration:configuration
+                                                     returnURL:returnURL];
+    if (rewrittenURL) {
+        reload.URL = rewrittenURL;
     }
-    NSString *query = components.percentEncodedQuery;
-    NSRange separator = [query rangeOfString:@"&" options:NSBackwardsSearch];
-    NSURLQueryItem *lastItem = components.queryItems.lastObject;
-    if (separator.location == NSNotFound || separator.location == 0 ||
-        ![lastItem.name isEqualToString:@"redirect_url"] || !lastItem.value.length ||
-        ![self checkoutURL:[NSURL URLWithString:lastItem.value] matchesEntryURL:entryURL]) {
-        return URL;
+    for (NSString *name in @[ @"appReferer", @"referer" ]) {
+        for (NSURLQueryItem *item in items) {
+            if ([item.name isEqualToString:name] && [self isUsableReferer:item.value]) {
+                [reload setValue:item.value forHTTPHeaderField:@"Referer"];
+                return reload;
+            }
+        }
     }
-    // 保留微信下单链接的原始参数和编码，仅移除 H5 追加的尾部回跳参数。
-    components.percentEncodedQuery = [query substringToIndex:separator.location];
-    return components.URL ?: URL;
+    [reload setValue:[configuration.payment.wechatReturnScheme stringByAppendingString:@"://"]
+        forHTTPHeaderField:@"Referer"];
+    return reload;
+}
+
++ (nullable NSURL *)wechatGatewayURLFromComponents:(NSURLComponents *)components
+                                        queryItems:(NSArray<NSURLQueryItem *> *)items
+                                     configuration:(XYBookAudioConfiguration *)configuration
+                                         returnURL:(NSURL **)returnURL {
+    NSUInteger redirectIndex = NSNotFound;
+    for (NSUInteger index = 0; index < items.count; index++) {
+        if ([items[index].name isEqualToString:@"redirect_url"]) {
+            if (redirectIndex != NSNotFound) {
+                return nil;
+            }
+            redirectIndex = index;
+        }
+    }
+    if (redirectIndex == NSNotFound) {
+        return nil;
+    }
+
+    // queryItems 已解码一层，回跳地址中的查询和片段保持原样。
+    NSString *target = items[redirectIndex].value;
+    if (!target.length) {
+        return nil;
+    }
+    NSURL *destination;
+    if (@available(iOS 17.0, *)) {
+        destination = [NSURL URLWithString:target encodingInvalidCharacters:NO];
+    } else {
+        destination = [NSURL URLWithString:target];
+    }
+    if (![destination.scheme.lowercaseString isEqualToString:@"https"] || ![configuration allowsURL:destination]) {
+        return nil;
+    }
+    *returnURL = destination;
+    if (!configuration.payment.removesWeChatRedirectURL) {
+        return nil;
+    }
+
+    // 用解码后的参数定位，直接从原始查询移除，避免重新编码微信的签名参数。
+    NSMutableArray<NSString *> *rawItems =
+        [[components.percentEncodedQuery componentsSeparatedByString:@"&"] mutableCopy];
+    [rawItems removeObjectAtIndex:redirectIndex];
+    components.percentEncodedQuery = [rawItems componentsJoinedByString:@"&"];
+    NSURL *rewritten = components.URL;
+    return [self typeForURL:rewritten] == XYBookAudioPaymentLinkTypeWeChatGateway ? rewritten : nil;
+}
+
++ (BOOL)isUsableReferer:(nullable NSString *)referer {
+    return referer.length &&
+           [referer rangeOfCharacterFromSet:NSCharacterSet.whitespaceAndNewlineCharacterSet].location == NSNotFound &&
+           [referer rangeOfCharacterFromSet:NSCharacterSet.controlCharacterSet].location == NSNotFound;
 }
 
 + (NSURL *)alipayURLFromURL:(NSURL *)URL withReturnScheme:(NSString *)returnScheme {

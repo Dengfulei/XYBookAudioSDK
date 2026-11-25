@@ -76,8 +76,10 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 /// 按宿主 Info.plist 的 CFBundleURLName 查找第一个非空的 Scheme，未配置时返回 nil。
 + (nullable NSString *)hostURLSchemeForName:(NSString *)URLName;
 
-/// 宿主注册的微信支付回跳 Scheme（不带 `://`），用于构造微信中转请求的 `Referer`。
+/// 宿主注册的微信支付回跳 Scheme（不带 `://`），用于构造微信中转请求的缺省 `Referer`。
 @property (nonatomic, copy, nullable) NSString *wechatReturnScheme;
+/// 默认 YES，从微信中转请求移除唯一且可信的 `redirect_url`。设为 NO 时保留参数，回到 App 后仍可加载该地址。
+@property (nonatomic) BOOL removesWeChatRedirectURL;
 /// 宿主注册的支付宝支付回跳 Scheme（不带 `://`），用于 `SafePay` 链接的 `fromAppUrlScheme`。
 @property (nonatomic, copy, nullable) NSString *alipayReturnScheme;
 

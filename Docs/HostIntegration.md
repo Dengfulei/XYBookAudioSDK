@@ -12,11 +12,13 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`，支付从可信 HTTPS 入口页发起。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。
 
-微信中转请求将 `wechatReturnScheme` 拼接 `://` 后作为 `Referer`。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
+微信中转请求的 `Referer` 优先取中转链接的 `appReferer` 参数，其次取 `referer` 参数，缺省时使用 `wechatReturnScheme` 拼接 `://`。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
 
 宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 
-支付渠道发出已注册的回跳 Scheme 时，系统打开宿主。听书容器仍在时，H5 在页面恢复后按业务订单号查单。启用微信回跳 Scheme 后，SDK 重发微信中转请求时，会省略 H5 在链接末尾追加的、指回同一可信入口页的 HTTPS `redirect_url`，以便使用已配置的 Scheme 回跳。微信下单参数和其他回跳地址会按原样发送。
+启用微信回跳 Scheme 后，SDK 从微信中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 和 `allowedPathPrefixes` 校验 HTTPS 地址。默认从中转请求移除通过校验的参数，保留其他参数的顺序和编码。宿主可将 `payment.removesWeChatRedirectURL` 设为 `NO`，使中转请求携带原始 `redirect_url`，同时保留 App 侧回跳处理。缺少有效可信地址时，中转 URL 原样使用。
+
+微信成功拉起后，发起支付的场景先进入后台、再恢复活跃时，SDK 在原 WebView 加载保存的完整地址一次，保留查询参数和 `#/` 路由。H5 使用 `payOrder` 向后端确认支付结果。
 
 开发联调可显式传入 `fileURL`：SDK 使用 `loadFileURL:allowingReadAccessToURL:`，页面和音频限制在入口文件所在目录，解析符号链接后再次检查。此能力用于本地测试；生产 H5 和业务资源仍由宿主配置。
 
