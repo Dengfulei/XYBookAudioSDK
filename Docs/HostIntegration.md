@@ -10,9 +10,11 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 `entryURL` 为 HTTPS 线上入口。`trustedOrigins` 是精确 origin（scheme、host、可选端口），`allowedPathPrefixes` 按路径段边界校验，不做字符串包含匹配。远程页面不能提供本地文件音源。
 
-内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`，支付从可信 HTTPS 入口页发起。宿主将已在 App Target 注册的 `WX_kWeixinScheme` 和 `ALI_kAliScheme` 分别传给 `wechatReturnScheme` 和 `alipayReturnScheme`（均不带 `://`），可只启用一个渠道。微信兼容链路使用 `WX_kWeixinScheme://` 作为中转请求的 `Referer`。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 使用 `ALI_kAliScheme` 作为 `fromAppUrlScheme`。
+内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`，支付从可信 HTTPS 入口页发起。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。
 
-宿主可调用 `[XYBookAudioPaymentConfiguration hostURLSchemeForName:@"weixinScheme"]` 按 `CFBundleURLName` 读取 Scheme。Demo 的支付宝 URL Type 名称是 `appScheme`，实际接入使用宿主自己的名称。
+微信中转请求将 `wechatReturnScheme` 拼接 `://` 后作为 `Referer`。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
+
+宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 
 支付渠道发出已注册的回跳 Scheme 时，系统打开宿主。听书容器仍在时，H5 在页面恢复后按业务订单号查单。微信中转链接如果带有 HTTPS `redirect_url`，SDK 保留该参数，回跳位置由商户链路决定。
 
