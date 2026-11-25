@@ -57,7 +57,6 @@
 - (void)openPaymentURL:(NSURL *)URL {
     self.openedURL = URL;
     self.openCount++;
-    [self setValue:NSUUID.UUID forKey:@"paymentLaunchToken"];
 }
 @end
 
@@ -67,7 +66,7 @@
 
 @implementation XYBookAudioPolicyTests
 
-- (void)testWeChatNavigationReissuesOnceAndOpensOnlyOnce {
+- (void)testWeChatNavigationReissuesOnceAndAllowsTheNextPayment {
     NSURL *checkout = [NSURL URLWithString:@"https://merchant.example/checkout"];
     XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
                                                                                              entryURL:checkout];
@@ -109,6 +108,18 @@
     XCTAssertEqualObjects(page.openedURL, action.request.URL);
     XCTAssertEqual(decide(), WKNavigationActionPolicyCancel);
     XCTAssertEqual(page.openCount, 1u);
+
+    NSURL *nextGateway = [NSURL URLWithString:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?token=next"];
+    action.sourceFrame.request = [NSURLRequest requestWithURL:checkout];
+    action.request = [NSURLRequest requestWithURL:nextGateway];
+    XCTAssertEqual(decide(), WKNavigationActionPolicyCancel);
+    XCTAssertEqualObjects(webView.loadedRequest.URL, nextGateway);
+    action.request = webView.loadedRequest;
+    XCTAssertEqual(decide(), WKNavigationActionPolicyAllow);
+    action.sourceFrame.request = [NSURLRequest requestWithURL:nextGateway];
+    action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"weixin://wap/pay?token=next"]];
+    XCTAssertEqual(decide(), WKNavigationActionPolicyCancel);
+    XCTAssertEqual(page.openCount, 2u);
 }
 
 - (void)testPaymentLinksMatchEndpointsExactly {

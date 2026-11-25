@@ -2,7 +2,6 @@
 #import "XYBookAudioWebViewController.h"
 #import "XYBookAudioWebBridge.h"
 #import "XYBookAudioUserAgent.h"
-#import "XYBookAudioMessageProtocol.h"
 #import "XYBookAudioPaymentLinks.h"
 
 #import "XYBookAudioLogger.h"
@@ -26,7 +25,6 @@
 // 有原收银台历史项时，微信中转流程仍在进行。
 @property (nonatomic, strong) WKBackForwardListItem *wechatCheckoutItem;
 @property (nonatomic, strong) NSURL *wechatReloadURL;
-@property (nonatomic, strong) NSUUID *paymentLaunchToken;
 
 @end
 
@@ -176,25 +174,13 @@
     [self.webBridge pageDidAppear];
 }
 
-/// 优先回退 H5 历史；没有历史时关闭页面，播放会话继续保留。
-- (void)goBack {
-    if (self.webView.canGoBack) {
-        [self.webView goBack];
-        return;
-    }
-    NSError *error = [self.windowRouter closeWindowFromPage:self beforeClose:nil];
-    if (error) {
-        [self.logger error:error component:XYBookAudioLogPage operation:XYBookAudioActionCloseWindow];
-    }
-}
-
 /// 幂等撤销当前文档及异步 UA 任务；播放会话独立于页面生命周期。
 - (void)invalidatePage {
     if (self.closing) {
         return;
     }
     self.closing = YES;
-    [self clearPayment];
+    [self clearWeChatPayment];
     [self.userAgentProvider cancel];
     self.userAgentProvider = nil;
     [self.webBridge invalidate];
@@ -253,8 +239,8 @@
     BOOL trusted = [self.configuration allowsURL:webView.URL];
     if (self.wechatCheckoutItem) {
         [self.webBridge invalidate];
-        if (trusted && !self.paymentLaunchToken) {
-            [self clearPayment];
+        if (trusted) {
+            [self clearWeChatPayment];
         }
     }
     if (trusted) {
@@ -278,7 +264,7 @@
 }
 
 - (void)webViewWebContentProcessDidTerminate:(WKWebView *)webView {
-    [self clearPayment];
+    [self clearWeChatPayment];
     [self.logger write:XYBookAudioLogLevelError component:XYBookAudioLogPage
                message:@"Web content process terminated."];
     [self showError:@"页面进程已退出，播放会话仍保留"];
@@ -307,7 +293,7 @@
     if (type == XYBookAudioPaymentLinkTypeNone) {
         return NO;
     }
-    if ((action.targetFrame && !action.targetFrame.isMainFrame) || self.paymentLaunchToken) {
+    if (action.targetFrame && !action.targetFrame.isMainFrame) {
         decide(WKNavigationActionPolicyCancel);
         return YES;
     }
@@ -332,6 +318,7 @@
         BOOL fromGateway = action.sourceFrame.isMainFrame &&
             [XYBookAudioPaymentLinks typeForURL:action.sourceFrame.request.URL] == XYBookAudioPaymentLinkTypeWeChatGateway;
         if (self.wechatCheckoutItem && !self.wechatReloadURL && (fromGateway || [self isPaymentCheckoutAction:action])) {
+            [self restoreWeChatCheckout];
             [self openPaymentURL:URL];
         }
         return YES;
@@ -351,25 +338,13 @@
 }
 
 - (void)openPaymentURL:(NSURL *)URL {
-    NSUUID *token = NSUUID.UUID;
-    self.paymentLaunchToken = token;
-    __weak typeof(self) weakSelf = self;
-    [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:^(BOOL opened) {
-        if (weakSelf.paymentLaunchToken != token) {
-            return;
-        }
-        if (!opened) {
-            [weakSelf.logger write:XYBookAudioLogLevelWarning component:XYBookAudioLogPage
-                           message:@"Unable to open payment app."];
-        }
-        [weakSelf returnToPaymentCheckout];
-    }];
+    [UIApplication.sharedApplication openURL:URL options:@{} completionHandler:nil];
 }
 
-- (void)returnToPaymentCheckout {
+- (void)restoreWeChatCheckout {
     WKBackForwardListItem *checkout = self.wechatCheckoutItem;
     WKBackForwardListItem *current = self.webView.backForwardList.currentItem;
-    [self clearPayment];
+    [self clearWeChatPayment];
     [self.spinner stopAnimating];
     if (checkout && current != checkout &&
         [XYBookAudioPaymentLinks typeForURL:current.URL] == XYBookAudioPaymentLinkTypeWeChatGateway) {
@@ -377,10 +352,9 @@
     }
 }
 
-- (void)clearPayment {
+- (void)clearWeChatPayment {
     self.wechatCheckoutItem = nil;
     self.wechatReloadURL = nil;
-    self.paymentLaunchToken = nil;
 }
 
 /// 用户取消导航不作为加载失败；其他错误经可配置日志记录域／码，页面显示统一重试提示。
@@ -392,7 +366,7 @@
     }
     if (self.wechatCheckoutItem) {
         [self.logger error:error component:XYBookAudioLogPage operation:@"H5 payment"];
-        [self returnToPaymentCheckout];
+        [self restoreWeChatCheckout];
         return;
     }
     [self.logger error:error component:XYBookAudioLogPage operation:@"Page load"];
