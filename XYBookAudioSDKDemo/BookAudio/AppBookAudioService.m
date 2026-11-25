@@ -7,7 +7,7 @@ NSNotificationName const AppBookAudioServiceEventNotification = @"AppBookAudioSe
 NSString *const AppBookAudioServiceEventNameKey = @"event";
 NSString *const AppBookAudioServiceEventParametersKey = @"parameters";
 
-/* 带 completion 的宿主接入示例使用以下结果映射。
+ //带 completion 的宿主接入示例使用以下结果映射。
 static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult result) {
     switch (result) {
         case AppLoginSucceeded:
@@ -18,7 +18,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
             return XYBookAudioLoginFailed;
     }
 }
-*/
+
 
 @interface AppBookAudioService () <XYBookAudioHost>
 @property (nonatomic, strong, nullable) XYBookAudioSDKManager *SDK;
@@ -174,7 +174,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     completion(@{@"id" : userId, @"info" : @{@"id" : userId}}, nil);
 }
 
-/* 带 completion 的宿主接入示例。
+// 带 completion 的宿主接入示例。
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller
                        completion:(void (^)(XYBookAudioLoginResult, NSError *))completion {
     UINavigationController *navigation = controller.navigationController;
@@ -198,7 +198,6 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     weakLogin = login;
     [navigation pushViewController:login animated:YES];
 }
-*/
 
 /// 在 SDK 提供的导航栈中 push 宿主登录页。登录结果由账号变更通知处理。
 - (void)bookAudioRequestLoginFrom:(UIViewController *)controller {

@@ -87,8 +87,11 @@
     action.sourceFrame.mainFrame = YES;
     action.targetFrame.mainFrame = YES;
     action.sourceFrame.request = [NSURLRequest requestWithURL:checkout];
-    NSURL *gateway = [NSURL URLWithString:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?token=test"];
-    action.request = [NSURLRequest requestWithURL:gateway];
+    NSURL *gateway = [NSURL URLWithString:
+        @"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?token=test&sign=abc%2bdef%2F%3D"];
+    NSString *gatewayWithRedirect = [gateway.absoluteString stringByAppendingString:
+        @"&redirect_url=https%3A%2F%2Fmerchant.example%2Fcheckout%3FpayOrder%3Dtest%23%2F"];
+    action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:gatewayWithRedirect]];
     WKNavigationActionPolicy (^decide)(void) = ^{
         __block WKNavigationActionPolicy policy = -1;
         [(id<WKNavigationDelegate>)page webView:webView decidePolicyForNavigationAction:(WKNavigationAction *)action
@@ -97,7 +100,7 @@
     };
 
     XCTAssertEqual(decide(), WKNavigationActionPolicyCancel);
-    XCTAssertEqualObjects(webView.loadedRequest.URL, gateway);
+    XCTAssertEqualObjects(webView.loadedRequest.URL.absoluteString, gateway.absoluteString);
     XCTAssertEqualObjects([webView.loadedRequest valueForHTTPHeaderField:@"Referer"], @"merchant.wechat://");
     action.request = webView.loadedRequest;
     XCTAssertEqual(decide(), WKNavigationActionPolicyAllow);
@@ -120,6 +123,20 @@
     action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"weixin://wap/pay?token=next"]];
     XCTAssertEqual(decide(), WKNavigationActionPolicyCancel);
     XCTAssertEqual(page.openCount, 2u);
+}
+
+- (void)testWeChatGatewayPreservesOtherReturnURLs {
+    NSURL *entry = [NSURL URLWithString:@"https://merchant.example/checkout"];
+    NSString *base = @"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?token=test";
+    for (NSString *suffix in @[
+        @"&redirect_url=https%3A%2F%2Fmerchant.example%2Freceipt",
+        @"&redirect_url=https%3A%2F%2Fother.example%2Fcheckout",
+        @"&redirect_url=https%3A%2F%2Fmerchant.example%2Fcheckout&sign=abc%2bdef",
+        @"&redirect_url="
+    ]) {
+        NSURL *URL = [NSURL URLWithString:[base stringByAppendingString:suffix]];
+        XCTAssertEqualObjects([XYBookAudioPaymentLinks wechatGatewayURLFromURL:URL removingReturnToEntryURL:entry], URL);
+    }
 }
 
 - (void)testPaymentLinksMatchEndpointsExactly {

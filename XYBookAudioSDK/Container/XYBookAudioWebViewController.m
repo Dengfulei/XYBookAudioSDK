@@ -305,8 +305,9 @@
     if (type == XYBookAudioPaymentLinkTypeWeChatGateway && payment.wechatReturnScheme && !self.wechatCheckoutItem &&
         [request.HTTPMethod isEqualToString:@"GET"] && [self isPaymentCheckoutAction:action]) {
         self.wechatCheckoutItem = webView.backForwardList.currentItem;
-        self.wechatReloadURL = URL;
         NSMutableURLRequest *reload = [request mutableCopy];
+        reload.URL = [XYBookAudioPaymentLinks wechatGatewayURLFromURL:URL removingReturnToEntryURL:self.configuration.entryURL];
+        self.wechatReloadURL = reload.URL;
         [reload setValue:[payment.wechatReturnScheme stringByAppendingString:@"://"] forHTTPHeaderField:@"Referer"];
         decide(WKNavigationActionPolicyCancel);
         [webView loadRequest:reload];

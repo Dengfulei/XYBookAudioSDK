@@ -31,6 +31,12 @@ typedef NS_ENUM(NSUInteger, XYBookAudioPaymentLinkType) {
 /// @return 页面匹配时返回 `YES`，地址为空或未匹配时返回 `NO`。
 + (BOOL)checkoutURL:(nullable NSURL *)URL matchesEntryURL:(NSURL *)entryURL;
 
+/// 省略附加在微信中转地址末尾、指回当前入口页的 HTTPS 回跳参数。
+/// @param URL 微信 H5 支付中转地址。
+/// @param entryURL SDK 配置的可信 HTTPS 入口地址。
+/// @return 去掉匹配的 `redirect_url` 后的地址，或原地址。
++ (NSURL *)wechatGatewayURLFromURL:(NSURL *)URL removingReturnToEntryURL:(NSURL *)entryURL;
+
 /// 替换支付宝 SafePay 数据中的 `fromAppUrlScheme`，保留原支付数据。
 /// @param URL 原始支付宝唤起链接，可传 `nil`。
 /// @param returnScheme 宿主注册的支付宝回跳 Scheme，不带 `://`。

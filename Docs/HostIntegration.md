@@ -16,7 +16,7 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 
-支付渠道发出已注册的回跳 Scheme 时，系统打开宿主。听书容器仍在时，H5 在页面恢复后按业务订单号查单。微信中转链接如果带有 HTTPS `redirect_url`，SDK 保留该参数，回跳位置由商户链路决定。
+支付渠道发出已注册的回跳 Scheme 时，系统打开宿主。听书容器仍在时，H5 在页面恢复后按业务订单号查单。启用微信回跳 Scheme 后，SDK 重发微信中转请求时，会省略 H5 在链接末尾追加的、指回同一可信入口页的 HTTPS `redirect_url`，以便使用已配置的 Scheme 回跳。微信下单参数和其他回跳地址会按原样发送。
 
 开发联调可显式传入 `fileURL`：SDK 使用 `loadFileURL:allowingReadAccessToURL:`，页面和音频限制在入口文件所在目录，解析符号链接后再次检查。此能力用于本地测试；生产 H5 和业务资源仍由宿主配置。
 

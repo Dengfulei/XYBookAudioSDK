@@ -39,6 +39,24 @@
            [(URL.path ?: @"") isEqualToString:(entryURL.path ?: @"")];
 }
 
++ (NSURL *)wechatGatewayURLFromURL:(NSURL *)URL removingReturnToEntryURL:(NSURL *)entryURL {
+    NSURLComponents *components = [NSURLComponents componentsWithURL:URL resolvingAgainstBaseURL:NO];
+    if ([self typeForURLComponents:components] != XYBookAudioPaymentLinkTypeWeChatGateway) {
+        return URL;
+    }
+    NSString *query = components.percentEncodedQuery;
+    NSRange separator = [query rangeOfString:@"&" options:NSBackwardsSearch];
+    NSURLQueryItem *lastItem = components.queryItems.lastObject;
+    if (separator.location == NSNotFound || separator.location == 0 ||
+        ![lastItem.name isEqualToString:@"redirect_url"] || !lastItem.value.length ||
+        ![self checkoutURL:[NSURL URLWithString:lastItem.value] matchesEntryURL:entryURL]) {
+        return URL;
+    }
+    // 保留微信下单链接的原始参数和编码，仅移除 H5 追加的尾部回跳参数。
+    components.percentEncodedQuery = [query substringToIndex:separator.location];
+    return components.URL ?: URL;
+}
+
 + (NSURL *)alipayURLFromURL:(NSURL *)URL withReturnScheme:(NSString *)returnScheme {
     NSURLComponents *parts = URL ? [NSURLComponents componentsWithURL:URL resolvingAgainstBaseURL:NO] : nil;
     if ([self typeForURLComponents:parts] != XYBookAudioPaymentLinkTypeAlipayApp) {
