@@ -2,6 +2,9 @@
 
 @implementation XYBookAudioPaymentLinks
 
+/// 基于已解析的 URL 组件识别链接类型。
+/// @param components 已解析的 URL 组件，可传 `nil`。
+/// @return 匹配的支付链接类型。组件为空或未匹配时返回 `XYBookAudioPaymentLinkTypeNone`。
 + (XYBookAudioPaymentLinkType)typeForURLComponents:(nullable NSURLComponents *)components {
     if (components.user || components.password || components.port || components.fragment) {
         return XYBookAudioPaymentLinkTypeNone;
