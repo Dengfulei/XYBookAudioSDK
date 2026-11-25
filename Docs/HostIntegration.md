@@ -10,6 +10,10 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 `entryURL` 为 HTTPS 线上入口。`trustedOrigins` 是精确 origin（scheme、host、可选端口），`allowedPathPrefixes` 按路径段边界校验，不做字符串包含匹配。远程页面不能提供本地文件音源。
 
+内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`，支付从可信 HTTPS 入口页发起。宿主将已在 App Target 注册的 `WX_kWeixinScheme` 和 `ALI_kAliScheme` 分别传给 `wechatReturnScheme` 和 `alipayReturnScheme`（均不带 `://`），可只启用一个渠道。微信兼容链路使用 `WX_kWeixinScheme://` 作为中转请求的 `Referer`。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 使用 `ALI_kAliScheme` 作为 `fromAppUrlScheme`。
+
+支付渠道发出已注册的回跳 Scheme 时，系统打开宿主。听书容器仍在时，H5 在页面恢复后按业务订单号查单。微信中转链接如果带有 HTTPS `redirect_url`，SDK 保留该参数，回跳位置由商户链路决定。
+
 开发联调可显式传入 `fileURL`：SDK 使用 `loadFileURL:allowingReadAccessToURL:`，页面和音频限制在入口文件所在目录，解析符号链接后再次检查。此能力用于本地测试；生产 H5 和业务资源仍由宿主配置。
 
 SDK 在加载 H5 前通过临时 WebView 的空白本地文档读取实际 `navigator.userAgent`，追加固定标识 `MediaConvergenceXinhua` 并设置该实例的 `customUserAgent`，保留系统 UA 的移动／桌面模式内容。首次页面加载即生效，重载和重开不会重复追加；仅影响当前 SDK 页面，宿主无需额外设置 UA。读取失败会显示可重试的页面初始化错误，诊断信息遵循日志配置，关闭页面后不继续加载。H5 可用 `navigator.userAgent.includes('MediaConvergenceXinhua')` 识别端内环境。UA 不携带账号信息，身份查询和变更继续使用 JS Bridge 协议。

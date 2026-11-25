@@ -50,6 +50,29 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
     return [NSString stringWithFormat:@"%@://%@%@", URL.scheme.lowercaseString, URL.host.lowercaseString, port];
 }
 
+static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
+    if (!scheme) {
+        return YES;
+    }
+    NSArray *reserved = @[ @"http", @"https", @"file", @"about", @"data", @"javascript", @"weixin",
+                           @"alipay", @"alipays", @"tel", @"sms", @"mailto" ];
+    if (!scheme.length || [reserved containsObject:scheme.lowercaseString]) {
+        return NO;
+    }
+    return [scheme rangeOfString:@"^[A-Za-z][A-Za-z0-9+.-]*$" options:NSRegularExpressionSearch].length == scheme.length;
+}
+
+@implementation XYBookAudioPaymentConfiguration
+
+- (id)copyWithZone:(NSZone *)zone {
+    XYBookAudioPaymentConfiguration *copy = [[self.class allocWithZone:zone] init];
+    copy.wechatReturnScheme = self.wechatReturnScheme;
+    copy.alipayReturnScheme = self.alipayReturnScheme;
+    return copy;
+}
+
+@end
+
 @implementation XYBookAudioConfiguration
 
 - (instancetype)initWithHostIdentifier:(NSString *)hostIdentifier entryURL:(NSURL *)entryURL {
@@ -73,6 +96,7 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
     copy.logHandler = self.logHandler;
     copy.bridgeRequestPayloadLoggingEnabled = self.bridgeRequestPayloadLoggingEnabled;
     copy.webInspectorEnabled = self.webInspectorEnabled;
+    copy.payment = self.payment;
     copy.trustedOrigins = self.trustedOrigins;
     copy.allowedPathPrefixes = self.allowedPathPrefixes;
     return copy;
@@ -113,6 +137,21 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
     return XYBookAudioIsHTTPSURLString(URL.absoluteString) || (self.entryURL.isFileURL && [self allowsLocalURL:URL]);
 }
 
+- (BOOL)hasValidPaymentConfiguration {
+    XYBookAudioPaymentConfiguration *payment = self.payment;
+    if (!payment) {
+        return YES;
+    }
+    if ((!payment.wechatReturnScheme && !payment.alipayReturnScheme) ||
+        !XYBookAudioIsPaymentScheme(payment.wechatReturnScheme) || !XYBookAudioIsPaymentScheme(payment.alipayReturnScheme) ||
+        [payment.wechatReturnScheme.lowercaseString isEqualToString:payment.alipayReturnScheme.lowercaseString] ||
+        (payment.wechatReturnScheme && [self.trustedOrigins containsObject:@"https://wx.tenpay.com"])) {
+        return NO;
+    }
+    return [self.entryURL.scheme.lowercaseString isEqualToString:@"https"] &&
+           !self.entryURL.user && !self.entryURL.password;
+}
+
 - (BOOL)validate:(NSError **)error {
     if (self.logLevel < XYBookAudioLogLevelOff || self.logLevel > XYBookAudioLogLevelDebug) {
         if (error) {
@@ -120,15 +159,21 @@ static NSString *XYBookAudioOrigin(NSURL *URL) {
         }
         return NO;
     }
-    if (self.hostIdentifier.length && self.environment.length && [self allowsURL:self.entryURL]) {
-        return YES;
+    if (!self.hostIdentifier.length || !self.environment.length || ![self allowsURL:self.entryURL]) {
+        if (error) {
+            *error = XYBookAudioError(
+                XYBookAudioInvalidArgument,
+                @"A host namespace, environment and trusted HTTPS entry or explicit local file entry are required.");
+        }
+        return NO;
     }
-    if (error) {
-        *error = XYBookAudioError(
-            XYBookAudioInvalidArgument,
-            @"A host namespace, environment and trusted HTTPS entry or explicit local file entry are required.");
+    if (![self hasValidPaymentConfiguration]) {
+        if (error) {
+            *error = XYBookAudioError(XYBookAudioInvalidArgument, @"Invalid H5 payment configuration.");
+        }
+        return NO;
     }
-    return NO;
+    return YES;
 }
 
 @end

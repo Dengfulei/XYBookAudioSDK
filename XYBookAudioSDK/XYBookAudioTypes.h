@@ -70,6 +70,16 @@ typedef NS_ENUM(NSInteger, XYBookAudioLogLevel) {
 /// `level` 为日志级别，`component` 为产生日志的 SDK 模块，`message` 为日志正文。
 typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *component, NSString *message);
 
+/// 现有 H5 收银台的可选支付配置。每个渠道在提供其回跳 Scheme 时启用。
+@interface XYBookAudioPaymentConfiguration : NSObject <NSCopying>
+
+/// 宿主的 WX_kWeixinScheme，不带 ://。SDK 以该值拼接微信中转请求的 Referer。
+@property (nonatomic, copy, nullable) NSString *wechatReturnScheme;
+/// 宿主的 ALI_kAliScheme，不带 ://。用作旧 SafePay 链接的 fromAppUrlScheme。
+@property (nonatomic, copy, nullable) NSString *alipayReturnScheme;
+
+@end
+
 @interface XYBookAudioConfiguration : NSObject <NSCopying>
 
 /// 宿主命名空间，和 `environment` 一起隔离播放断点。
@@ -91,6 +101,9 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 
 /// 默认 NO；宿主可在联调时启用 iOS 16.4 及以上内置 WebView 的 Safari 检查。
 @property (nonatomic) BOOL webInspectorEnabled;
+
+/// 默认为 nil。启用后仅允许可信 HTTPS 入口页发起支付，按 origin 和路径匹配。
+@property (nonatomic, copy, nullable) XYBookAudioPaymentConfiguration *payment;
 
 /// 允许访问的 HTTPS origin 集合，按协议、主机和端口精确匹配。默认取自入口地址。
 @property (nonatomic, copy) NSSet<NSString *> *trustedOrigins;

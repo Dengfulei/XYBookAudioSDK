@@ -7,6 +7,16 @@ NSNotificationName const AppBookAudioServiceEventNotification = @"AppBookAudioSe
 NSString *const AppBookAudioServiceEventNameKey = @"event";
 NSString *const AppBookAudioServiceEventParametersKey = @"parameters";
 
+static NSString *AppBookAudioPaymentScheme(NSString *urlName) {
+    for (NSDictionary *urlType in NSBundle.mainBundle.infoDictionary[@"CFBundleURLTypes"]) {
+        if ([urlType[@"CFBundleURLName"] isEqualToString:urlName]) {
+            NSString *scheme = [urlType[@"CFBundleURLSchemes"] firstObject];
+            return scheme.length ? scheme : nil;
+        }
+    }
+    return nil;
+}
+
 /* 带 completion 的宿主接入示例使用以下结果映射。
 static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult result) {
     switch (result) {
@@ -85,7 +95,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     return YES;
 }
 
-/// 重建时沿用已确认的配置；Demo 默认读取随包资源，远程联调入口由启动参数显式提供。
+/// 重建时沿用已确认的配置；Demo 默认打开参考消息测试环境。
 - (BOOL)prepareSessionWithError:(NSError **)error {
     if (self.SDK) {
         return YES;
@@ -96,6 +106,12 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     NSURL *entry = [NSURL URLWithString:@"https://cankaoxiaoxi.testnewmedia.xinhuaapp.com/h5/snck/index.html#/?hideTopView=1&vc=1"];
     XYBookAudioConfiguration *configuration =
         [[XYBookAudioConfiguration alloc] initWithHostIdentifier:NSBundle.mainBundle.bundleIdentifier entryURL:entry];
+    XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
+    payment.wechatReturnScheme = AppBookAudioPaymentScheme(@"weixinScheme");
+    payment.alipayReturnScheme = AppBookAudioPaymentScheme(@"appScheme");
+    if (payment.wechatReturnScheme || payment.alipayReturnScheme) {
+        configuration.payment = payment;
+    }
     configuration.webInspectorEnabled = YES;
 #if DEBUG
     // 仅示例本地调试开启日志；正式接入通过统一配置选择日志级别，SDK 默认关闭。
