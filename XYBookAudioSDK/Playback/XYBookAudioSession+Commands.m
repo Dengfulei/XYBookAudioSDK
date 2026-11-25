@@ -1,6 +1,8 @@
 // 播放命令应用层：校验输入与权限，再执行队列替换、音频交接、拖动和切章；不读取 H5 页面状态。
 #import "XYBookAudioSessionInternal.h"
 
+static double const XYBookAudioMaxSafeJSInteger = 9007199254740991.0;
+
 @implementation XYBookAudioSession (Commands)
 
 - (void)executeSnckAudio:(NSString *)command
@@ -21,7 +23,7 @@
         return;
     }
     if ([command isEqual:XYBookAudioCommandGetTimer]) {
-        completion([self snckPlayback][XYBookAudioKeyTimer], nil);
+        completion([self snckTimerSnapshot], nil);
         return;
     }
     if ([command isEqual:XYBookAudioCommandStop]) {
@@ -36,47 +38,15 @@
         completion(error ? nil : [self snckPlayback], error);
     };
     if ([command isEqual:XYBookAudioCommandSetQueue]) {
-        NSError *error = nil;
-        XYBookAudioQueue *queue = [XYBookAudioQueue queueWithSnckParameters:parameters error:&error];
-        if (!queue) {
-            finish(nil, error);
-            return;
-        }
-        [self installQueue:queue index:[parameters[@"startIndex"] integerValue] position:0 identity:self.identity];
-        [self publish];
-        if ([parameters[@"autoPlay"] boolValue]) {
-            [self play:finish];
-        } else {
-            finish(nil, nil);
-        }
+        [self setSnckQueue:parameters completion:finish];
         return;
     }
-    if ([command isEqual:XYBookAudioCommandSetTimer] &&
-        [parameters[XYBookAudioKeyMode] isEqual:XYBookAudioSnckTimerModeOff]) {
-        if (self.queue.snckItems) {
-            [self execute:XYBookAudioCommandCancelSleepTimer parameters:@{} completion:finish];
-        } else {
-            finish(nil, nil);
-        }
+    if ([command isEqual:XYBookAudioCommandSetTimer]) {
+        [self setSnckTimer:parameters completion:finish];
         return;
     }
     if (!self.queue.snckItems) {
         finish(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"SetQueue is required before this command."));
-        return;
-    }
-    if ([command isEqual:XYBookAudioCommandSetTimer]) {
-        NSDictionary *modes = @{
-            XYBookAudioSnckTimerModeAfterItems : XYBookAudioValueTrackCount,
-            XYBookAudioSnckTimerModeAfterDuration : XYBookAudioValueDuration
-        };
-        id mode = modes[parameters[XYBookAudioKeyMode] ?: NSNull.null] ?: NSNull.null;
-        NSMutableDictionary *timer = [parameters mutableCopy];
-        timer[XYBookAudioKeyMode] = mode;
-        NSError *error = nil;
-        if ([self.sleepTimer configure:timer hasCurrentChapter:YES maximumDurationMs:9007199254740991.0 error:&error]) {
-            [self publish];
-        }
-        finish(nil, error);
         return;
     }
     if ([command isEqual:XYBookAudioCommandPlayAt]) {
@@ -90,13 +60,58 @@
     }
     if ([command isEqual:XYBookAudioCommandSeekTo]) {
         double duration = self.engine.durationMs;
-        double limit = duration > 0 ? round(duration) : 9007199254740991.0;
+        double limit = duration > 0 ? round(duration) : XYBookAudioMaxSafeJSInteger;
         if (!XYBookAudioIsNumberInRange(parameters[XYBookAudioKeyPositionMs], 0, limit, YES)) {
             finish(nil, XYBookAudioError(XYBookAudioInvalidArgument, @"positionMs is invalid or beyond the duration."));
             return;
         }
     }
     [self execute:command parameters:parameters completion:finish];
+}
+
+- (void)setSnckQueue:(NSDictionary *)parameters completion:(XYBookAudioCompletion)completion {
+    NSError *error = nil;
+    XYBookAudioQueue *queue = [XYBookAudioQueue queueWithSnckParameters:parameters error:&error];
+    if (!queue) {
+        completion(nil, error);
+        return;
+    }
+    [self installQueue:queue index:[parameters[@"startIndex"] integerValue] position:0 identity:self.identity];
+    [self publish];
+    if ([parameters[@"autoPlay"] boolValue]) {
+        [self play:completion];
+    } else {
+        completion(nil, nil);
+    }
+}
+
+- (void)setSnckTimer:(NSDictionary *)parameters completion:(XYBookAudioCompletion)completion {
+    id requestedMode = parameters[XYBookAudioKeyMode];
+    BOOL turningOff = [requestedMode isEqual:XYBookAudioSnckTimerModeOff];
+    if (!self.queue.snckItems) {
+        NSError *error =
+            turningOff ? nil
+                       : XYBookAudioError(XYBookAudioInvalidArgument, @"SetQueue is required before this command.");
+        completion(nil, error);
+        return;
+    }
+    if (turningOff) {
+        [self execute:XYBookAudioCommandCancelSleepTimer parameters:@{} completion:completion];
+        return;
+    }
+
+    NSDictionary *modes = @{
+        XYBookAudioSnckTimerModeAfterItems : XYBookAudioValueTrackCount,
+        XYBookAudioSnckTimerModeAfterDuration : XYBookAudioValueDuration
+    };
+    NSMutableDictionary *timer = [parameters mutableCopy];
+    timer[XYBookAudioKeyMode] = modes[requestedMode ?: NSNull.null] ?: NSNull.null;
+    NSError *error = nil;
+    if ([self.sleepTimer configure:timer hasCurrentChapter:YES maximumDurationMs:XYBookAudioMaxSafeJSInteger
+                             error:&error]) {
+        [self publish];
+    }
+    completion(nil, error);
 }
 
 /// 命令按业务职责分发；只有成功变更才发布新快照，异步播放／拖动由对应流程结算。
@@ -184,11 +199,11 @@
     if (index == NSNotFound) {
         index = 0;
     }
-    double position = parameters[XYBookAudioKeyPositionMs]
-                          ? [parameters[XYBookAudioKeyPositionMs] doubleValue]
-                          : ([queue.chapters[index].chapterId isEqual:checkpoint[XYBookAudioKeyChapterID]]
-                                 ? [checkpoint[XYBookAudioKeyPositionMs] doubleValue]
-                                 : 0);
+    NSNumber *positionParameter = parameters[XYBookAudioKeyPositionMs];
+    if (!positionParameter && [queue.chapters[index].chapterId isEqual:checkpoint[XYBookAudioKeyChapterID]]) {
+        positionParameter = checkpoint[XYBookAudioKeyPositionMs];
+    }
+    double position = positionParameter.doubleValue;
     [self installQueue:queue index:index position:position identity:identity];
     if (checkpointError) {
         [self.logger error:checkpointError component:XYBookAudioLogStorage operation:@"Checkpoint read"];
@@ -373,9 +388,11 @@
                                     @"Identity changed while preparing playback; provide a fresh source."));
         return;
     }
-    BOOL completed = [[self snapshot][XYBookAudioKeyState] isEqual:XYBookAudioValueCompleted] ||
-                     (self.queue.snckItems && [self.engine.state isEqual:XYBookAudioValueCompleted]);
-    BOOL failed = self.queue.snckItems && [self.engine.state isEqual:XYBookAudioValueFailed];
+    NSString *engineState = self.engine.state;
+    NSString *state = self.stateOverride ?: engineState;
+    BOOL completed = [state isEqual:XYBookAudioValueCompleted] ||
+                     (self.queue.snckItems && [engineState isEqual:XYBookAudioValueCompleted]);
+    BOOL failed = self.queue.snckItems && [engineState isEqual:XYBookAudioValueFailed];
     self.stateOverride = nil;
     self.reason = nil;
     if (!self.engine.hasItem || completed || failed) {

@@ -148,22 +148,46 @@ typedef NS_ENUM(NSUInteger, XYBookAudioTimerChange) {
 };
 
 FOUNDATION_EXPORT const NSTimeInterval XYBookAudioProgressInterval;
+
+/// @return 支持的播放倍速，按从低到高排列。
 FOUNDATION_EXPORT NSArray<NSNumber *> *XYBookAudioSupportedPlaybackRates(void);
 
 #pragma mark - 输入校验
 
 /// 仅接受范围内的有限 NSNumber，布尔值始终无效。
+/// @param value 待校验的输入值。
+/// @param minimum 允许的最小值，包含边界。
+/// @param maximum 允许的最大值，包含边界。
+/// @param requiresInteger 为 YES 时要求输入没有小数部分。
+/// @return 输入满足数值类型、范围及整数要求时返回 YES。
 FOUNDATION_EXPORT BOOL XYBookAudioIsNumberInRange(id _Nullable value, double minimum, double maximum,
                                                   BOOL requiresInteger);
+
+/// @param value 待校验的输入值。
+/// @return `value` 为长度大于零的 NSString 时返回 YES。
 FOUNDATION_EXPORT BOOL XYBookAudioIsNonEmptyString(id _Nullable value);
+
 /// HTTPS 地址须包含主机，且不得携带用户名或密码。
+/// @param value 待校验的地址字符串。
+/// @return 输入符合 HTTPS 地址约束时返回 YES。
 FOUNDATION_EXPORT BOOL XYBookAudioIsHTTPSURLString(id _Nullable value);
+
 /// 解析 SNCK 的 HTTP(S) 地址并校验长度、空白字符和凭证。
+/// @param value 待解析的地址字符串。
+/// @return 合法的 HTTP(S) URL，输入无效时返回 nil。
 FOUNDATION_EXPORT NSURL *_Nullable XYBookAudioParseSnckURL(id _Nullable value);
 
 #pragma mark - SNCK 错误
 
+/// 创建使用 SNCK 错误域的错误对象。
+/// @param code H5 协议的数值错误码。
+/// @param message 回传给 H5 的错误说明。
+/// @return 可交给桥接回包流程的 NSError。
 FOUNDATION_EXPORT NSError *XYBookAudioMakeSnckError(NSInteger code, NSString *message);
+
+/// 将原生或 SNCK 错误转换为 H5 回包格式。
+/// @param error 需要回传的错误。
+/// @return 含数值 `code` 和字符串 `message` 的字典。
 FOUNDATION_EXPORT NSDictionary *XYBookAudioMakeSnckErrorPayload(NSError *error);
 
 NS_ASSUME_NONNULL_END

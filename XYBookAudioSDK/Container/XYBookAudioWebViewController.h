@@ -10,7 +10,12 @@
 /// 根页完成从宿主导航栈移除时通知窗口路由。
 @property (nonatomic, copy) dispatch_block_t didLeaveNavigation;
 
-/// entryURL 仅指定当前窗口入口，可信范围始终由初始 configuration 决定。
+/// 创建听书窗口。根页和子页使用同一套可信范围。
+/// @param SDK 当前播放会话的业务入口。
+/// @param configuration 初始可信来源、路径和页面调试配置。
+/// @param entryURL 当前窗口要加载的地址。
+/// @param windowRouter 处理 SDK 子页的打开与关闭。
+/// @param logger 当前 SDK 实例的日志出口。
 - (instancetype)initWithSDK:(XYBookAudioSDKManager *)SDK
               configuration:(XYBookAudioConfiguration *)configuration
                    entryURL:(NSURL *)entryURL

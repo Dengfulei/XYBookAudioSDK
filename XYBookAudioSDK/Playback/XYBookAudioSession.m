@@ -165,20 +165,6 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
             snckState = @"PAUSED";
         }
     }
-    NSDictionary *timer = hasQueue ? [self.sleepTimer snapshot] : @{};
-    NSDictionary *modes = @{
-        XYBookAudioValueDuration : XYBookAudioSnckTimerModeAfterDuration,
-        XYBookAudioValueTrackCount : XYBookAudioSnckTimerModeAfterItems
-    };
-    NSString *mode = timer[XYBookAudioKeyMode];
-    NSMutableDictionary *snckTimer = [@{
-        XYBookAudioKeyMode : (mode ? modes[mode] : nil) ?: XYBookAudioSnckTimerModeOff,
-        XYBookAudioKeyRemainingCount : timer[XYBookAudioKeyRemainingCount] ?: @0,
-        XYBookAudioKeyRemainingMs : @(llround([timer[XYBookAudioKeyRemainingMs] doubleValue]))
-    } mutableCopy];
-    if ([mode isEqual:XYBookAudioValueDuration]) {
-        snckTimer[XYBookAudioKeyDeadlineElapsedMs] = @(llround(self.sleepTimer.deadline * 1000));
-    }
     return @{
         @"stateVersion" : @(self.stateVersion),
         XYBookAudioKeyQueueVersion : @(self.queueVersion),
@@ -193,7 +179,26 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
             @(hasQueue ? llround(self.engine.hasItem ? self.engine.positionMs : self.position) : 0),
         XYBookAudioKeyDurationMs : @(hasQueue ? llround(self.engine.durationMs) : 0),
         @"bufferedPositionMs" : @(hasQueue ? llround(self.engine.bufferedPositionMs) : 0),
-        XYBookAudioKeyTimer : snckTimer
+        XYBookAudioKeyTimer : [self snckTimerSnapshot]
+    };
+}
+
+- (NSDictionary *)snckTimerSnapshot {
+    NSDictionary *timer = self.queue.snckItems.count ? [self.sleepTimer snapshot] : @{};
+    NSString *mode = timer[XYBookAudioKeyMode];
+    if ([mode isEqual:XYBookAudioValueDuration]) {
+        return @{
+            XYBookAudioKeyMode : XYBookAudioSnckTimerModeAfterDuration,
+            XYBookAudioKeyRemainingCount : @0,
+            XYBookAudioKeyRemainingMs : @(llround([timer[XYBookAudioKeyRemainingMs] doubleValue])),
+            XYBookAudioKeyDeadlineElapsedMs : @(llround(self.sleepTimer.deadline * 1000))
+        };
+    }
+    return @{
+        XYBookAudioKeyMode : [mode isEqual:XYBookAudioValueTrackCount] ? XYBookAudioSnckTimerModeAfterItems
+                                                                       : XYBookAudioSnckTimerModeOff,
+        XYBookAudioKeyRemainingCount : timer[XYBookAudioKeyRemainingCount] ?: @0,
+        XYBookAudioKeyRemainingMs : @0
     };
 }
 
@@ -291,8 +296,6 @@ static NSTimeInterval XYBookAudioContinuousTime(void) {
     self.lastSave = XYBookAudioContinuousTime();
     if (!saved) {
         [self.logger error:error component:XYBookAudioLogStorage operation:@"Checkpoint write"];
-    }
-    if (!saved) {
         [self report:XYBookAudioError(XYBookAudioStorageFailed, @"Unable to save the playback checkpoint.")];
     }
 }

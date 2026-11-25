@@ -16,25 +16,43 @@ typedef NS_ERROR_ENUM(XYBookAudioErrorDomain, XYBookAudioErrorCode){
     XYBookAudioDisposed,
     XYBookAudioStorageFailed
 };
+
+/// 创建 SDK 错误对象。
+/// @param code SDK 错误码。
+/// @param message 写入 `localizedDescription` 的错误说明。
+/// @return 错误域为 `XYBookAudioErrorDomain` 的 `NSError`。
 FOUNDATION_EXPORT NSError *XYBookAudioError(XYBookAudioErrorCode code, NSString *message);
+
+/// 将错误转换为稳定的字符串标识。
+/// @param error 要读取的错误。
+/// @return 对应的 SDK 错误名，未知错误返回 `INTERNAL_ERROR`。
 FOUNDATION_EXPORT NSString *XYBookAudioErrorName(NSError *error);
 
 @interface XYBookAudioIdentity : NSObject <NSCopying>
 
+/// `userId` 非空时为 YES。
 @property (nonatomic, readonly) BOOL isLoggedIn;
+/// 宿主账号标识，游客使用空字符串。
 @property (nonatomic, copy, readonly) NSString *userId;
 
-/// 空 userId 表示游客；只保留身份标识，不携带 token、密码或完整用户资料。
+/// 创建仅包含账号标识的听书身份。
+/// @param userId 宿主账号标识，传 nil 或空字符串表示游客。
+/// @return 可交给 SDK 的只读身份对象。
 - (instancetype)initWithUserId:(nullable NSString *)userId;
 
 @end
 
 @interface XYBookAudioChapter : NSObject
 
+/// 章节标识，在同一队列内唯一。
 @property (nonatomic, copy) NSString *chapterId;
+/// 用于播放快照和锁屏显示的章节标题。
 @property (nonatomic, copy) NSString *title;
+/// 为 YES 时，只有已登录用户可以播放。
 @property (nonatomic) BOOL requiresLogin;
+/// 当前账号获授权的音源 URL 字符串。音源未提供或授权已撤销时为 nil。
 @property (nonatomic, copy, nullable) NSString *audioURL;
+/// 已知的章节时长，单位为毫秒。未知时为 nil。
 @property (nonatomic, strong, nullable) NSNumber *durationMs;
 
 @end
@@ -49,12 +67,16 @@ typedef NS_ENUM(NSInteger, XYBookAudioLogLevel) {
 };
 
 /// 日志在主线程同步回调，默认脱敏。回调应快速返回，避免强引用 SDK 或重入业务接口。
+/// `level` 为日志级别，`component` 为产生日志的 SDK 模块，`message` 为日志正文。
 typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *component, NSString *message);
 
 @interface XYBookAudioConfiguration : NSObject <NSCopying>
 
+/// 宿主命名空间，和 `environment` 一起隔离播放断点。
 @property (nonatomic, copy) NSString *hostIdentifier;
+/// 业务环境，默认为 `production`。
 @property (nonatomic, copy) NSString *environment;
+/// 听书首页地址。支持可信 HTTPS 入口和显式指定的本地文件入口。
 @property (nonatomic, copy) NSURL *entryURL;
 
 /// 默认 Off；初始化 SDK 时复制配置，仅影响该实例。设置后仍会照常返回业务错误。
@@ -70,23 +92,33 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 /// 默认 NO；宿主可在联调时启用 iOS 16.4 及以上内置 WebView 的 Safari 检查。
 @property (nonatomic) BOOL webInspectorEnabled;
 
-/// HTTPS origin 精确匹配；路径另按目录段边界校验，不采用字符串包含匹配。
+/// 允许访问的 HTTPS origin 集合，按协议、主机和端口精确匹配。默认取自入口地址。
 @property (nonatomic, copy) NSSet<NSString *> *trustedOrigins;
+/// 允许访问的路径前缀，按路径段边界匹配。默认使用入口路径。
 @property (nonatomic, copy) NSArray<NSString *> *allowedPathPrefixes;
 
-/// 创建配置；SDK 初始化时会校验入口并复制全部配置，修改原配置不会影响运行中的实例。
+/// 创建配置，供 SDK 初始化时校验并复制。
+/// @param hostIdentifier 非空的宿主命名空间，例如宿主 App 的 Bundle ID。
+/// @param entryURL 听书首页地址，用于生成初始可信范围。
+/// @return 可在创建 SDK 前调整的配置对象。
 - (instancetype)initWithHostIdentifier:(NSString *)hostIdentifier entryURL:(NSURL *)entryURL;
 
-/// 校验页面是否位于可信 HTTPS origin／路径段或本地资源目录；不触发网络请求。
+/// 校验页面地址。此方法只检查地址和配置。
+/// @param URL 待打开或导航到的页面地址。
+/// @return 页面在可信 HTTPS origin 与路径范围内，或在显式配置的本地资源目录内时返回 YES。
 - (BOOL)allowsURL:(NSURL *)URL;
 
-/// 允许 HTTPS 音源；仅在显式本地页面模式下允许入口目录内的文件音源，并解析符号链接阻止越界。
+/// 校验原生队列音源地址。
+/// @param URL 待播放的音源地址。
+/// @return HTTPS 地址返回 YES。本地文件仅在显式本地页面模式下且解析后的路径位于入口目录内时返回 YES。
 - (BOOL)allowsMediaURL:(NSURL *)URL;
 
 /// 仅 file 入口启用本地资源目录；远程页面始终不能获得文件访问权限。
 @property (nonatomic, readonly, nullable) NSURL *localResourceDirectory;
 
-/// 校验命名空间、入口来源和日志级别；失败返回 NO 并写入错误，不修改当前配置。
+/// 校验命名空间、入口来源和日志级别。
+/// @param error 可选的错误输出地址。校验失败时写入错误原因。
+/// @return 配置有效时返回 YES，否则返回 NO。
 - (BOOL)validate:(NSError **)error;
 
 @end

@@ -5,10 +5,13 @@
 @interface XYBookAudioBridgeWebView : WKWebView
 
 /// 在加载页面前通过 EasyJS.inject 注册 window.xhAppJSBridge.JSCallNative；每个 WebView 使用独立接口对象。
+/// @param interface 本 WebView 的 EasyJS 消息处理器。
 - (void)addJavascriptInterface:(XYBookAudioScriptMessageHandler *)interface;
 /// 页面释放时解除 WebKit 对接口对象的持有。
 - (void)removeJavascriptInterface;
-/// 按原项目的“回调方法(JSON)”方式回调原版 xinhua-sdk，保持 actionName / parameters 原样传递。
+/// 通过 `window.xhWebJSBridge.nativeCallJS` 发送原生消息。
+/// @param message 含 `actionName` 和可选 `parameters` 的 JSON 字典。
+/// @param completion 可选的发送结果回调。收到的错误来自 JSON 序列化或 JavaScript 执行。
 - (void)nativeCallJS:(NSDictionary *)message completion:(void (^)(NSError *error))completion;
 
 @end

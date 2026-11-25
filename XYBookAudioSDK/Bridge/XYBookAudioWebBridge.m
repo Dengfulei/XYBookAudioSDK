@@ -154,7 +154,6 @@ static SEL XYBookAudioH5Selector(id action) {
     return YES;
 }
 
-/// 与原项目一致按 actionName 查找同名方法并调用，SNCK 入口直接使用同名方法。
 - (void)handleJSCallNative:(NSString *)object {
     // 长度限制针对解码后的业务 JSON，不能因中文、百分号的传输编码而误拒绝合法消息。
     if (object.length > XYBookAudioSnckMaximumMessageLength) {
@@ -171,7 +170,12 @@ static SEL XYBookAudioH5Selector(id action) {
         [self reportInvalidRequest:@"Malformed request object."];
         return;
     }
-    NSDictionary *request = message;
+    [self dispatchRequest:message];
+}
+
+/// 校验请求字段，按 actionName 调用同名方法。
+/// @param request 已解析的 H5 请求字典，含 `actionName`、可选 `callbackActionName` 和 `parameters`。
+- (void)dispatchRequest:(NSDictionary *)request {
     NSString *action = request[XYBookAudioKeyActionName];
     id callback = request[XYBookAudioKeyCallbackActionName];
     if (callback && !XYBookAudioIsNonEmptyString(callback)) {
@@ -196,8 +200,7 @@ static SEL XYBookAudioH5Selector(id action) {
     if (parameters && ![parameters isKindOfClass:NSDictionary.class]) {
         NSString *errorMessage = @"parameters must be an object.";
         if ([XYBookAudioLegacyUIActions() containsObject:action]) {
-            [self.logger error:XYBookAudioError(XYBookAudioInvalidArgument, errorMessage)
-                     component:XYBookAudioLogBridge
+            [self.logger error:XYBookAudioError(XYBookAudioInvalidArgument, errorMessage) component:XYBookAudioLogBridge
                      operation:action];
         } else {
             NSError *error = XYBookAudioIsHostInfoAction(action)
@@ -488,17 +491,19 @@ static SEL XYBookAudioH5Selector(id action) {
         [self sendSnckEvent:XYBookAudioSnckEventUserChanged payload:[self.SDK snckUserState] reason:nil];
         return;
     }
-    NSDictionary *playback = [self.SDK snckPlayback];
     if ([event isEqual:XYBookAudioEventError] && [payload[XYBookAudioKeyCode] isEqual:@"PLAYBACK_FAILED"]) {
-        NSMutableDictionary *failure = [playback mutableCopy];
+        NSMutableDictionary *failure = [[self.SDK snckPlayback] mutableCopy];
         failure[@"error"] =
             XYBookAudioMakeSnckErrorPayload(XYBookAudioMakeSnckError(4108, payload[XYBookAudioKeyMessage]));
         [self sendSnckEvent:XYBookAudioSnckEventAudioError payload:failure reason:XYBookAudioSnckReasonPlaybackFailed];
         return;
     }
-    if (![event isEqual:XYBookAudioEventPlaybackChanged]) {
-        return;
+    if ([event isEqual:XYBookAudioEventPlaybackChanged]) {
+        [self sendSnckPlaybackChanges:[self.SDK snckPlayback]];
     }
+}
+
+- (void)sendSnckPlaybackChanges:(NSDictionary *)playback {
     NSDictionary *previous = self.lastSnckPlayback;
     self.lastSnckPlayback = playback;
     BOOL queueChanged = ![previous[XYBookAudioKeyQueueVersion] isEqual:playback[XYBookAudioKeyQueueVersion]];
@@ -538,14 +543,21 @@ static SEL XYBookAudioH5Selector(id action) {
 }
 
 /// 异步结果只发回发起请求的文档。
+/// @param request 发起本次业务操作的 H5 请求，包含回包使用的 `callbackActionName`。
+/// @return 固定到当前文档的回调，可用于转发业务结果或错误。
 - (XYBookAudioCompletion)callbackForRequest:(NSDictionary *)request {
-    NSUInteger generation = self.generation;
+    NSUInteger requestGeneration = self.generation;
     __weak typeof(self) weakSelf = self;
     return ^(NSDictionary *result, NSError *error) {
-        [weakSelf answerRequest:request result:result error:error generation:generation];
+        [weakSelf answerRequest:request result:result error:error generation:requestGeneration];
     };
 }
 
+/// 按原请求格式向 H5 回传结果。
+/// @param request 原发起请求，使用其中的 `callbackActionName` 匹配回调。
+/// @param result 成功时的业务字典。可为空，例如关闭页面成功。
+/// @param error 执行错误。资料查询错误经 `onBookAudioError` 事件发送。
+/// @param generation 请求发起时的文档代次，旧文档的结果会被丢弃。
 - (void)answerRequest:(NSDictionary *)request
                result:(NSDictionary *)result
                 error:(NSError *)error

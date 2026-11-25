@@ -11,6 +11,7 @@
 @property (nonatomic, copy) void (^JSCallNativeBlock)(NSString *object);
 
 /// 原项目同名入口；仅转交经过来源和类型校验的 JSON 字符串，不执行业务动作。
+/// @param object EasyJS 解码后的完整业务 JSON 字符串。
 - (void)JSCallNative:(NSString *)object;
 
 @end

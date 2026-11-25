@@ -99,12 +99,10 @@ static NSUUID *XYBookAudioLatestPlaybackReservation;
     }
     AVAudioSession *session = AVAudioSession.sharedInstance;
     NSError *activationError = nil;
-    BOOL acquired = self.active ? [session setActive:YES error:&activationError]
-                                : ([session setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
-                                                options:0
-                                                  error:&activationError] &&
-                                   [session setActive:YES error:&activationError]);
-    if (!acquired) {
+    BOOL configured = self.active || [session setCategory:AVAudioSessionCategoryPlayback mode:AVAudioSessionModeDefault
+                                                  options:0
+                                                    error:&activationError];
+    if (!configured || ![session setActive:YES error:&activationError]) {
         [self.logger error:activationError component:XYBookAudioLogAudio operation:@"Audio session activation"];
         if (error) {
             *error = activationError;
