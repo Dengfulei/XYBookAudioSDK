@@ -7,16 +7,6 @@ NSNotificationName const AppBookAudioServiceEventNotification = @"AppBookAudioSe
 NSString *const AppBookAudioServiceEventNameKey = @"event";
 NSString *const AppBookAudioServiceEventParametersKey = @"parameters";
 
-static NSString *AppBookAudioPaymentScheme(NSString *urlName) {
-    for (NSDictionary *urlType in NSBundle.mainBundle.infoDictionary[@"CFBundleURLTypes"]) {
-        if ([urlType[@"CFBundleURLName"] isEqualToString:urlName]) {
-            NSString *scheme = [urlType[@"CFBundleURLSchemes"] firstObject];
-            return scheme.length ? scheme : nil;
-        }
-    }
-    return nil;
-}
-
 /* 带 completion 的宿主接入示例使用以下结果映射。
 static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult result) {
     switch (result) {
@@ -107,8 +97,8 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     XYBookAudioConfiguration *configuration =
         [[XYBookAudioConfiguration alloc] initWithHostIdentifier:NSBundle.mainBundle.bundleIdentifier entryURL:entry];
     XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
-    payment.wechatReturnScheme = AppBookAudioPaymentScheme(@"weixinScheme");
-    payment.alipayReturnScheme = AppBookAudioPaymentScheme(@"appScheme");
+    payment.wechatReturnScheme = [XYBookAudioPaymentConfiguration hostURLSchemeForName:@"weixinScheme"];
+    payment.alipayReturnScheme = [XYBookAudioPaymentConfiguration hostURLSchemeForName:@"appScheme"];
     if (payment.wechatReturnScheme || payment.alipayReturnScheme) {
         configuration.payment = payment;
     }

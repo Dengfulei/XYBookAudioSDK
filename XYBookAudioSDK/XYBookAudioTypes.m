@@ -64,6 +64,28 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
 
 @implementation XYBookAudioPaymentConfiguration
 
++ (NSString *)hostURLSchemeForName:(NSString *)URLName {
+    id URLTypes = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleURLTypes"];
+    if (![URLTypes isKindOfClass:NSArray.class]) {
+        return nil;
+    }
+    for (id URLType in URLTypes) {
+        if (![URLType isKindOfClass:NSDictionary.class] || ![URLType[@"CFBundleURLName"] isEqual:URLName]) {
+            continue;
+        }
+        id schemes = URLType[@"CFBundleURLSchemes"];
+        if (![schemes isKindOfClass:NSArray.class]) {
+            continue;
+        }
+        for (id scheme in schemes) {
+            if ([scheme isKindOfClass:NSString.class] && [scheme length]) {
+                return scheme;
+            }
+        }
+    }
+    return nil;
+}
+
 - (id)copyWithZone:(NSZone *)zone {
     XYBookAudioPaymentConfiguration *copy = [[self.class allocWithZone:zone] init];
     copy.wechatReturnScheme = self.wechatReturnScheme;
