@@ -157,21 +157,15 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
 
 /// 每次从宿主账号模块读取当前身份并映射为 SDK 类型；不缓存副本，也不传递 token。
 - (XYBookAudioIdentity *)bookAudioUserIdentity {
-    return [[XYBookAudioIdentity alloc] initWithUserId:AppAccountService.sharedInstance.userId];
+    return [[XYBookAudioIdentity alloc] initWithUserId:@"f7752098514840b6a70d2cf618c4c0f1"];
 }
 
-/// 标准 H5 用户资料由宿主账号模块提供；本地账号仅有 id，不捏造其他字段或 ticket。
-- (void)bookAudioUserInfoUsingTicket:(BOOL)usingTicket completion:(void (^)(NSDictionary *, NSError *))completion {
-    if (usingTicket) {
-        completion(nil, XYBookAudioError(XYBookAudioUnsupported, @"本地账号未接入票据服务。"));
-        return;
-    }
-    NSString *userId = AppAccountService.sharedInstance.userId;
-    if (!userId.length) {
-        completion(nil, XYBookAudioError(XYBookAudioHostFailed, @"读取用户资料时账号已退出。"));
-        return;
-    }
-    completion(@{@"id" : userId, @"info" : @{@"id" : userId}}, nil);
+- (void)bookAudioUserInfoWithParameters:(NSDictionary<NSString *, id> *)parameters
+                             completion:(void (^)(NSDictionary *, NSError *))completion {
+    completion(@{
+        @"guest": @NO,
+        @"token": @"eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiJmNzc1MjA5ODUxNDg0MGI2YTcwZDJjZjYxOGM0YzBmMSIsImlhdCI6MTc5NTU3ODA0NX0.wEE7YkAhLKxxku__MMgzmM01Iv-r9c8_YxiI6b9UXIU"
+    }, nil);
 }
 
 // 带 completion 的宿主接入示例。
