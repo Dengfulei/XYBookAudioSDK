@@ -4,6 +4,8 @@
 
 NSErrorDomain const XYBookAudioErrorDomain = @"com.xinhuamm.bookaudio";
 
+static NSString *const XYBookAudioWeChatGatewayOrigin = @"https://wx.tenpay.com";
+
 NSError *XYBookAudioError(XYBookAudioErrorCode code, NSString *message) {
     return [NSError errorWithDomain:XYBookAudioErrorDomain code:code userInfo:@{NSLocalizedDescriptionKey : message}];
 }
@@ -111,8 +113,7 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
         _entryURL = [entryURL copy];
         _environment = @"production";
         _logLevel = XYBookAudioLogLevelOff;
-        _trustedOrigins = [NSSet setWithObject:XYBookAudioOrigin(entryURL)];
-        _allowedPathPrefixes = @[ entryURL.path.length ? entryURL.path : @"/" ];
+        _trustedOrigins = [NSSet set];
     }
     return self;
 }
@@ -128,7 +129,6 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
     copy.webInspectorEnabled = self.webInspectorEnabled;
     copy.payment = self.payment;
     copy.trustedOrigins = self.trustedOrigins;
-    copy.allowedPathPrefixes = self.allowedPathPrefixes;
     return copy;
 }
 
@@ -136,18 +136,15 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
     if (self.entryURL.isFileURL) {
         return [self allowsLocalURL:URL];
     }
-    if (!XYBookAudioIsHTTPSURLString(URL.absoluteString) ||
-        ![self.trustedOrigins containsObject:XYBookAudioOrigin(URL)]) {
+    if (!XYBookAudioIsHTTPSURLString(URL.absoluteString)) {
         return NO;
     }
-    NSString *path = URL.path.length ? URL.path.stringByStandardizingPath : @"/";
-    for (NSString *prefix in self.allowedPathPrefixes) {
-        NSString *directory = [prefix hasSuffix:@"/"] ? prefix : [prefix stringByAppendingString:@"/"];
-        if ([path isEqualToString:prefix] || [path hasPrefix:directory]) {
-            return YES;
-        }
+    NSString *origin = XYBookAudioOrigin(URL);
+    // 微信中转页由支付导航处理，避免在中转页激活 Bridge 或将其作为支付回跳页。
+    if (self.payment.wechatReturnScheme && [origin isEqualToString:XYBookAudioWeChatGatewayOrigin]) {
+        return NO;
     }
-    return NO;
+    return !self.trustedOrigins.count || [self.trustedOrigins containsObject:origin];
 }
 
 - (NSURL *)localResourceDirectory {
@@ -175,7 +172,7 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
     if ((!payment.wechatReturnScheme && !payment.alipayReturnScheme) ||
         !XYBookAudioIsPaymentScheme(payment.wechatReturnScheme) || !XYBookAudioIsPaymentScheme(payment.alipayReturnScheme) ||
         [payment.wechatReturnScheme.lowercaseString isEqualToString:payment.alipayReturnScheme.lowercaseString] ||
-        (payment.wechatReturnScheme && [self.trustedOrigins containsObject:@"https://wx.tenpay.com"])) {
+        (payment.wechatReturnScheme && [self.trustedOrigins containsObject:XYBookAudioWeChatGatewayOrigin])) {
         return NO;
     }
     return [self.entryURL.scheme.lowercaseString isEqualToString:@"https"] &&

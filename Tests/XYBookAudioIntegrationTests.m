@@ -463,10 +463,9 @@
     XYBookAudioConfiguration *remote =
         [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"remote"
                                                         entryURL:[NSURL URLWithString:@"https://example.com/books"]];
+    remote.trustedOrigins = [NSSet setWithObject:@"https://example.com"];
     XCTAssertFalse([remote allowsMediaURL:self.configuration.entryURL]);
-    XCTAssertFalse([remote allowsURL:[NSURL URLWithString:@"https://example.com/books-evil"]]);
     XCTAssertFalse([remote allowsURL:[NSURL URLWithString:@"https://example.com.evil/books"]]);
-    XCTAssertFalse([remote allowsURL:[NSURL URLWithString:@"https://example.com/books/%2e%2e/private"]]);
     XCTAssertTrue([remote allowsURL:[NSURL URLWithString:@"https://example.com/books/one"]]);
 }
 

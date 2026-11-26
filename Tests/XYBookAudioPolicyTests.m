@@ -117,6 +117,7 @@
     action.sourceFrame.request = [NSURLRequest requestWithURL:checkout];
     NSURL *gateway = [NSURL URLWithString:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?"
                                          "prepay_id=test&ct=1&sign=abc%2bdef%2F%3D&package=one%2520"];
+    XCTAssertFalse([configuration allowsURL:gateway]);
     NSString *redirectQuery = @"&redirect_url=https%3A%2F%2Fmerchant.example%2Fcheckout"
                                "%3FpayOrder%3Da%252Bb%23%2Fresult%3Ffrom%3Dwx";
     NSString *gatewayWithRedirect = [gateway.absoluteString stringByAppendingString:redirectQuery];
@@ -176,12 +177,13 @@
     NSURL *entry = [NSURL URLWithString:@"https://merchant.example/checkout"];
     XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
                                                                                               entryURL:entry];
+    configuration.trustedOrigins = [NSSet setWithObject:@"https://merchant.example"];
     XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
     payment.wechatReturnScheme = @"merchant.wechat";
     configuration.payment = payment;
     NSString *base = @"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?token=test";
     for (NSString *suffix in @[
-             @"", @"&redirect_url=https%3A%2F%2Fmerchant.example%2Freceipt",
+             @"",
              @"&redirect_url=https%3A%2F%2Fother.example%2Fcheckout",
              @"&redirect_url=https%3A%2F%2Fmerchant.example%3A444%2Fcheckout",
              @"&redirect_url=http%3A%2F%2Fmerchant.example%2Fcheckout",
@@ -203,6 +205,7 @@
     NSURL *entry = [NSURL URLWithString:@"https://merchant.example/checkout"];
     XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
                                                                                               entryURL:entry];
+    configuration.trustedOrigins = [NSSet setWithObject:@"https://merchant.example"];
     XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
     payment.wechatReturnScheme = @"merchant.wechat";
     payment.usesLegacyWeChatPaymentFlow = NO;
@@ -319,7 +322,7 @@
         NSString *gateway =
             [NSString stringWithFormat:@"https://wx.tenpay.com/cgi-bin/mmpayweb-bin/checkmweb?prepay_id=%@", order];
         NSString *signature = @"&sign=abc%2bdef";
-        NSString *redirect = [NSString stringWithFormat:@"&redirect_url=https%%3A%%2F%%2Fmerchant.example%%2Fcheckout"
+        NSString *redirect = [NSString stringWithFormat:@"&redirect_url=https%%3A%%2F%%2Fresult.example%%2Freceipt"
                                                          "%%3FpayOrder%%3D%@%%23%%2Fresult",
                                                         order];
         NSString *link = [@[ gateway, redirect, signature ] componentsJoinedByString:@""];
@@ -353,7 +356,7 @@
     page.openCompletion(YES);
     XCTAssertEqual(webView.loadCount, 4u);
     XCTAssertEqualObjects(webView.loadedRequest.URL.absoluteString,
-                          @"https://merchant.example/checkout?payOrder=next#/result");
+                          @"https://result.example/receipt?payOrder=next#/result");
 
     action.request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"weixin://wap/pay?token=direct"]];
     decide(WKNavigationActionPolicyCancel);
@@ -503,6 +506,22 @@
                                                             options:0 error:nil];
     XCTAssertEqualObjects(payload[@"fromAppUrlScheme"], @"example.alipay");
     XCTAssertEqualObjects(payload[@"dataString"], @"order%2Bsignature");
+}
+
+- (void)testRemotePagesAllowAllPathsAndHonorConfiguredHTTPSOrigins {
+    NSURL *entry = [NSURL URLWithString:@"https://merchant.example/checkout"];
+    NSURL *otherOrigin = [NSURL URLWithString:@"https://result.example:8443/checkout/receipt"];
+    NSURL *otherPath = [NSURL URLWithString:@"https://merchant.example/receipt"];
+    XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc] initWithHostIdentifier:@"host"
+                                                                                              entryURL:entry];
+    XCTAssertTrue([configuration allowsURL:otherOrigin]);
+    XCTAssertTrue([configuration allowsURL:otherPath]);
+    XCTAssertFalse([configuration allowsURL:[NSURL URLWithString:@"http://result.example/receipt"]]);
+    XCTAssertFalse([configuration allowsURL:[NSURL URLWithString:@"https://user@result.example/receipt"]]);
+
+    configuration.trustedOrigins = [NSSet setWithObject:@"https://merchant.example"];
+    XCTAssertFalse([configuration allowsURL:otherOrigin]);
+    XCTAssertTrue([configuration allowsURL:otherPath]);
 }
 
 - (void)testPaymentConfigurationRequiresATrustedHTTPSEntryAndCopiesSchemes {

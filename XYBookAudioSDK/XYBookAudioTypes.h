@@ -110,23 +110,23 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 /// 默认 NO；宿主可在联调时启用 iOS 16.4 及以上内置 WebView 的 Safari 检查。
 @property (nonatomic) BOOL webInspectorEnabled;
 
-/// 默认为 nil。启用后仅允许可信 HTTPS 入口页发起支付，按 origin 和路径匹配。
+/// 默认为 nil。用于配置 H5 支付渠道和回跳方式。
 @property (nonatomic, copy, nullable) XYBookAudioPaymentConfiguration *payment;
 
-/// 允许访问的 HTTPS origin 集合，按协议、主机和端口精确匹配。默认取自入口地址。
+/// 允许访问的 HTTPS origin 集合，按协议、主机和端口精确匹配。默认空集合，允许所有 HTTPS origin。
+/// 配置示例 `configuration.trustedOrigins = [NSSet setWithObject:@"https://h5.example.com"];`
+/// 匹配 `https://h5.example.com/book-audio/index.html` 的来源。`https://h5.example.com:8443` 需单独加入集合。
 @property (nonatomic, copy) NSSet<NSString *> *trustedOrigins;
-/// 允许访问的路径前缀，按路径段边界匹配。默认使用入口路径。
-@property (nonatomic, copy) NSArray<NSString *> *allowedPathPrefixes;
 
 /// 创建配置，供 SDK 初始化时校验并复制。
 /// @param hostIdentifier 非空的宿主命名空间，例如宿主 App 的 Bundle ID。
-/// @param entryURL 听书首页地址，用于生成初始可信范围。
+/// @param entryURL 听书首页地址。
 /// @return 可在创建 SDK 前调整的配置对象。
 - (instancetype)initWithHostIdentifier:(NSString *)hostIdentifier entryURL:(NSURL *)entryURL;
 
 /// 校验页面地址。此方法只检查地址和配置。
 /// @param URL 待打开或导航到的页面地址。
-/// @return 页面在可信 HTTPS origin 与路径范围内，或在显式配置的本地资源目录内时返回 YES。
+/// @return 页面属于可信 HTTPS origin，或位于显式配置的本地资源目录内时返回 YES。
 - (BOOL)allowsURL:(NSURL *)URL;
 
 /// 校验原生队列音源地址。

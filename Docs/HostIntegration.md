@@ -8,9 +8,9 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 最低 iOS 15，公开头 `XYBookAudioSDK.h`，支持 ObjC 与 Swift。初始化不请求业务网络、不激活 AVAudioSession。宿主完成 `XYBookAudioHost`，强持有 SDK 和 host，所有方法在主线程调用。
 
-`entryURL` 为 HTTPS 线上入口。`trustedOrigins` 是精确 origin（scheme、host、可选端口），`allowedPathPrefixes` 按路径段边界校验，不做字符串包含匹配。远程页面不能提供本地文件音源。
+`entryURL` 为 HTTPS 线上入口。`trustedOrigins` 为空时允许所有 HTTPS origin，配置后按协议、主机和端口精确匹配。允许的 origin 下可以访问任意路径。`trustedOrigins` 也用于校验 H5 Bridge 的页面来源。远程页面不能提供本地文件音源。
 
-内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。
+内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。启用微信支付时，`https://wx.tenpay.com` 由支付流程专用。
 
 微信支付流程由 `payment.usesLegacyWeChatPaymentFlow` 选择。
 
@@ -19,7 +19,7 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 
-`NO` 模式从中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 和 `allowedPathPrefixes` 校验 HTTPS 地址。SDK 暂存通过校验的地址，从中转请求移除该参数，保留其他参数的顺序和编码。缺少有效可信地址时，中转 URL 原样重发，仍可拉起微信。
+`NO` 模式从中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 校验 HTTPS 地址。SDK 暂存通过校验的地址，从中转请求移除该参数，保留其他参数的顺序和编码。缺少有效可信地址时，中转 URL 原样重发，仍可拉起微信。
 
 `NO` 模式拉起微信后，发起支付的场景先进入后台、再恢复活跃时，SDK 在原 WebView 加载暂存的完整地址一次，保留查询参数和 `#/` 路由。H5 使用 `payOrder` 向后端确认支付结果。只有暂存了可信地址才会触发这次导航。
 
@@ -89,8 +89,8 @@ Demo 默认加载少年参考测试页。正式宿主在统一启动入口或首
 NSURL *entry = [NSURL URLWithString:@"https://h5.example.com/book-audio/index.html"];
 XYBookAudioConfiguration *configuration = [[XYBookAudioConfiguration alloc]
     initWithHostIdentifier:NSBundle.mainBundle.bundleIdentifier entryURL:entry];
-// 替换为实际业务路径；来源默认使用入口的 HTTPS 协议、域名和端口。
-configuration.allowedPathPrefixes = @[@"/book-audio/"];
+// 可选，按实际业务来源限制访问范围。
+configuration.trustedOrigins = [NSSet setWithObject:@"https://h5.example.com"];
 #if DEBUG
 configuration.logLevel = XYBookAudioLogLevelDebug;
 #endif
