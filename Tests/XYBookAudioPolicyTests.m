@@ -93,7 +93,6 @@
                                                                                              entryURL:checkout];
     XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
     payment.wechatReturnScheme = @"merchant.wechat";
-    payment.usesLegacyWeChatPaymentFlow = YES;
     configuration.payment = payment;
     XYBookAudioPaymentTestPage *page = [[XYBookAudioPaymentTestPage alloc] initWithSDK:nil
         configuration:configuration entryURL:checkout windowRouter:nil logger:nil];
@@ -277,15 +276,15 @@
     }
 }
 
-- (void)testLegacyWeChatFlowDefaultsToDisabledAndCopiesConfiguration {
+- (void)testLegacyWeChatFlowDefaultsToEnabledAndCopiesConfiguration {
     XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
-    XCTAssertFalse(payment.usesLegacyWeChatPaymentFlow);
-
-    payment.usesLegacyWeChatPaymentFlow = YES;
-    XYBookAudioPaymentConfiguration *copy = [payment copy];
+    XCTAssertTrue(payment.usesLegacyWeChatPaymentFlow);
 
     payment.usesLegacyWeChatPaymentFlow = NO;
-    XCTAssertTrue(copy.usesLegacyWeChatPaymentFlow);
+    XYBookAudioPaymentConfiguration *copy = [payment copy];
+
+    payment.usesLegacyWeChatPaymentFlow = YES;
+    XCTAssertFalse(copy.usesLegacyWeChatPaymentFlow);
 }
 
 - (void)testWeChatClearsPendingReturnOnFailureReplacementAndPageClosure {

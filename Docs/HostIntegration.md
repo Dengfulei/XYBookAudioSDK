@@ -14,8 +14,8 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 微信支付流程由 `payment.usesLegacyWeChatPaymentFlow` 选择。
 
-- `YES` 使用原收银台流程。从可信 HTTPS 入口页发起支付，中转请求的 `Referer` 固定为 `wechatReturnScheme://`。仅移除位于查询参数末尾、指回同一 HTTPS 入口页的 `redirect_url`。SDK 在拉起微信前恢复原收银台，回到 App 后由 H5 在恢复的页面查单。
-- `NO`（默认）支持直接处理微信支付链接。中转请求的 `Referer` 依次尝试 `appReferer`、`referer`，将选定 URL 的主机名拼接为 `主机名://`。无法接管回跳时，在 `referer` 前额外尝试 `redirect_url`；都不可用时使用 `wechatReturnScheme://`。最终使用的 Scheme 需在宿主 App 注册。
+- `YES`（默认）使用原收银台流程。从可信 HTTPS 入口页发起支付，中转请求的 `Referer` 固定为 `wechatReturnScheme://`。仅移除位于查询参数末尾、指回同一 HTTPS 入口页的 `redirect_url`。SDK 在拉起微信前恢复原收银台，回到 App 后由 H5 在恢复的页面查单。
+- `NO` 支持直接处理微信支付链接。中转请求的 `Referer` 依次尝试 `appReferer`、`referer`，将选定 URL 的主机名拼接为 `主机名://`。无法接管回跳时，在 `referer` 前额外尝试 `redirect_url`；都不可用时使用 `wechatReturnScheme://`。最终使用的 Scheme 需在宿主 App 注册。
 
 宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 

@@ -64,6 +64,13 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
 
 @implementation XYBookAudioPaymentConfiguration
 
+- (instancetype)init {
+    if ((self = [super init])) {
+        _usesLegacyWeChatPaymentFlow = YES;
+    }
+    return self;
+}
+
 + (NSString *)hostURLSchemeForName:(NSString *)URLName {
     id URLTypes = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleURLTypes"];
     if (![URLTypes isKindOfClass:NSArray.class]) {

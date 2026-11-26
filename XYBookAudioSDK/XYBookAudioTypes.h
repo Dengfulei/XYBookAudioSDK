@@ -79,9 +79,9 @@ typedef void (^XYBookAudioLogHandler)(XYBookAudioLogLevel level, NSString *compo
 /// 宿主注册的微信支付回跳 Scheme（不带 `://`），用于构造微信中转请求的缺省 `Referer`。
 @property (nonatomic, copy, nullable) NSString *wechatReturnScheme;
 /// 配置 `wechatReturnScheme` 后，选择 H5 微信支付流程。
-/// `YES` 使用原收银台流程，中转请求使用宿主微信 Scheme 作为 Referer。
+/// 默认 `YES`，使用原收银台流程，中转请求使用宿主微信 Scheme 作为 Referer。
 /// 仅移除末尾指回同一 HTTPS 入口页的 `redirect_url`，拉起微信前恢复原收银台。
-/// 默认 `NO`，支持直接拉起微信，并在 App 恢复活跃后加载暂存的可信回跳地址。
+/// 设为 `NO` 时，支持直接拉起微信，并在 App 恢复活跃后加载暂存的可信回跳地址。
 @property (nonatomic) BOOL usesLegacyWeChatPaymentFlow;
 /// 宿主注册的支付宝支付回跳 Scheme（不带 `://`），用于 `SafePay` 链接的 `fromAppUrlScheme`。
 @property (nonatomic, copy, nullable) NSString *alipayReturnScheme;
