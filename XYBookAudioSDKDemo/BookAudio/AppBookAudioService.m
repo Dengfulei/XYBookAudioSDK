@@ -99,7 +99,7 @@ static XYBookAudioLoginResult AppBookAudioLoginResultFromHost(AppLoginResult res
     XYBookAudioPaymentConfiguration *payment = [XYBookAudioPaymentConfiguration new];
     payment.wechatReturnScheme = [XYBookAudioPaymentConfiguration hostURLSchemeForName:@"weixinScheme"];
     payment.alipayReturnScheme = [XYBookAudioPaymentConfiguration hostURLSchemeForName:@"appScheme"];
-    payment.removesWeChatRedirectURL = YES;
+    payment.usesLegacyWeChatPaymentFlow = NO;
     if (payment.wechatReturnScheme || payment.alipayReturnScheme) {
         configuration.payment = payment;
     }

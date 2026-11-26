@@ -33,7 +33,11 @@ typedef NS_ENUM(NSUInteger, XYBookAudioPaymentLinkType) {
 /// @return 页面匹配时返回 `YES`，地址为空或未匹配时返回 `NO`。
 + (BOOL)checkoutURL:(nullable NSURL *)URL matchesEntryURL:(NSURL *)entryURL;
 
-/// 构造微信中转请求，取出唯一可信回跳地址，并按配置决定是否移除 `redirect_url`。
+/// 构造原收银台流程的微信中转请求，仅移除末尾指回入口页的 `redirect_url`。
++ (NSURLRequest *)legacyWeChatGatewayRequestFromRequest:(NSURLRequest *)request
+                                          configuration:(XYBookAudioConfiguration *)configuration;
+
+/// 构造支持回跳页的微信中转请求，提取并移除唯一可信的 `redirect_url`。
 /// @param request 原始微信 H5 支付中转请求。
 /// @param configuration SDK 的可信来源、路径和支付配置。
 /// @param returnURL 输出完整的可信 HTTPS 回跳地址，缺失或无效时为 `nil`。

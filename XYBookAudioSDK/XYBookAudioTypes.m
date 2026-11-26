@@ -64,13 +64,6 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
 
 @implementation XYBookAudioPaymentConfiguration
 
-- (instancetype)init {
-    if ((self = [super init])) {
-        _removesWeChatRedirectURL = NO;
-    }
-    return self;
-}
-
 + (NSString *)hostURLSchemeForName:(NSString *)URLName {
     id URLTypes = [NSBundle.mainBundle objectForInfoDictionaryKey:@"CFBundleURLTypes"];
     if (![URLTypes isKindOfClass:NSArray.class]) {
@@ -96,7 +89,7 @@ static BOOL XYBookAudioIsPaymentScheme(NSString *scheme) {
 - (id)copyWithZone:(NSZone *)zone {
     XYBookAudioPaymentConfiguration *copy = [[self.class allocWithZone:zone] init];
     copy.wechatReturnScheme = self.wechatReturnScheme;
-    copy.removesWeChatRedirectURL = self.removesWeChatRedirectURL;
+    copy.usesLegacyWeChatPaymentFlow = self.usesLegacyWeChatPaymentFlow;
     copy.alipayReturnScheme = self.alipayReturnScheme;
     return copy;
 }

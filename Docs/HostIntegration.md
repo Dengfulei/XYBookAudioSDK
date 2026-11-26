@@ -12,15 +12,18 @@ H5 通过 SNCK v1 调用客户端。动作和回包格式见 [H5 交互](H5Proto
 
 内嵌 H5 支付按站点启用。初始化前设置 `configuration.payment`。宿主在 App Target 的 URL Types 中注册微信支付回跳 Scheme 和支付宝支付回跳 Scheme，再将 Scheme 名称分别赋给 `wechatReturnScheme` 和 `alipayReturnScheme`。两个属性均填写不带 `://` 的 Scheme 名称，可只启用一个渠道。
 
-微信支付流程由 `payment.removesWeChatRedirectURL` 选择。默认 `YES` 沿用 SDK 原有流程，从可信 HTTPS 入口页发起，中转请求优先使用 `appReferer`、`referer` 的解码值。设为 `NO` 时使用 feature-11 流程，把选定的 Referer URL 主机名拼接为 `主机名://`。此模式无法接管回跳时按 `appReferer`、`redirect_url`、`referer` 的顺序选择。两个模式缺省时均使用 `wechatReturnScheme` 拼接 `://`。最终使用的 Scheme 需在宿主 App 注册。
+微信支付流程由 `payment.usesLegacyWeChatPaymentFlow` 选择。
+
+- `YES` 使用原收银台流程。从可信 HTTPS 入口页发起支付，中转请求的 `Referer` 固定为 `wechatReturnScheme://`。仅移除位于查询参数末尾、指回同一 HTTPS 入口页的 `redirect_url`。SDK 在拉起微信前恢复原收银台，回到 App 后由 H5 在恢复的页面查单。
+- `NO`（默认）支持直接处理微信支付链接。中转请求的 `Referer` 依次尝试 `appReferer`、`referer`，将选定 URL 的主机名拼接为 `主机名://`。无法接管回跳时，在 `referer` 前额外尝试 `redirect_url`；都不可用时使用 `wechatReturnScheme://`。最终使用的 Scheme 需在宿主 App 注册。
 
 宿主也可调用 `hostURLSchemeForName:`，传入 URL Type 名称（`CFBundleURLName`）读取已注册的 Scheme。Demo 按 `weixinScheme` 和 `appScheme` 查询。
 
-两个微信支付流程均从中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 和 `allowedPathPrefixes` 校验 HTTPS 地址。中转请求只移除通过校验的回跳参数，保留其他参数的顺序和编码。缺少有效可信地址时，中转 URL 原样使用。支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
+`NO` 模式从中转链接提取唯一的 `redirect_url`，解码一层，并按 `trustedOrigins` 和 `allowedPathPrefixes` 校验 HTTPS 地址。SDK 暂存通过校验的地址，从中转请求移除该参数，保留其他参数的顺序和编码。缺少有效可信地址时，中转 URL 原样重发，仍可拉起微信。
 
-微信成功拉起后，发起支付的场景先进入后台、再恢复活跃时，SDK 在原 WebView 加载保存的完整地址一次，保留查询参数和 `#/` 路由。H5 使用 `payOrder` 向后端确认支付结果。
+`NO` 模式拉起微信后，发起支付的场景先进入后台、再恢复活跃时，SDK 在原 WebView 加载暂存的完整地址一次，保留查询参数和 `#/` 路由。H5 使用 `payOrder` 向后端确认支付结果。只有暂存了可信地址才会触发这次导航。
 
-`NO` 模式下，中转请求缺少 `redirect_url` 时仍按原 URL 重发并拉起微信。此时 `Referer` 依次使用 `appReferer`、`referer` 和宿主微信 Scheme。App 回到前台时继续使用原 WebView，只有保存了可信地址才会额外导航。
+支付宝 H5 直接跳转 `SafePay` 链接时，SDK 将 `alipayReturnScheme` 写入 `fromAppUrlScheme`。
 
 开发联调可显式传入 `fileURL`：SDK 使用 `loadFileURL:allowingReadAccessToURL:`，页面和音频限制在入口文件所在目录，解析符号链接后再次检查。此能力用于本地测试；生产 H5 和业务资源仍由宿主配置。
 

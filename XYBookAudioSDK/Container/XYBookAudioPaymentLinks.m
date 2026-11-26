@@ -40,17 +40,40 @@
            [(URL.path ?: @"") isEqualToString:(entryURL.path ?: @"")];
 }
 
++ (NSURLRequest *)legacyWeChatGatewayRequestFromRequest:(NSURLRequest *)request
+                                          configuration:(XYBookAudioConfiguration *)configuration {
+    NSMutableURLRequest *reload = [request mutableCopy];
+    reload.URL = [self wechatGatewayURLFromURL:request.URL removingReturnToEntryURL:configuration.entryURL];
+    [reload setValue:[configuration.payment.wechatReturnScheme stringByAppendingString:@"://"]
+        forHTTPHeaderField:@"Referer"];
+    return reload;
+}
+
++ (NSURL *)wechatGatewayURLFromURL:(NSURL *)URL removingReturnToEntryURL:(NSURL *)entryURL {
+    NSURLComponents *components = [NSURLComponents componentsWithURL:URL resolvingAgainstBaseURL:NO];
+    if ([self typeForURLComponents:components] != XYBookAudioPaymentLinkTypeWeChatGateway) {
+        return URL;
+    }
+    NSString *query = components.percentEncodedQuery;
+    NSRange separator = [query rangeOfString:@"&" options:NSBackwardsSearch];
+    NSURLQueryItem *lastItem = components.queryItems.lastObject;
+    if (separator.location == NSNotFound || separator.location == 0 ||
+        ![lastItem.name isEqualToString:@"redirect_url"] || !lastItem.value.length ||
+        ![self checkoutURL:[NSURL URLWithString:lastItem.value] matchesEntryURL:entryURL]) {
+        return URL;
+    }
+    // 保留微信下单链接的原始参数和编码，仅移除 H5 追加的尾部回跳参数。
+    components.percentEncodedQuery = [query substringToIndex:separator.location];
+    return components.URL ?: URL;
+}
+
 + (NSURLRequest *)wechatGatewayRequestFromRequest:(NSURLRequest *)request
                                     configuration:(XYBookAudioConfiguration *)configuration
                                         returnURL:(NSURL **)returnURL {
     NSURLComponents *components = [NSURLComponents componentsWithURL:request.URL resolvingAgainstBaseURL:NO];
     NSArray<NSURLQueryItem *> *items = components.queryItems;
-    BOOL usesSDKFlow = configuration.payment.removesWeChatRedirectURL;
-    NSMutableURLRequest *reload =
-        usesSDKFlow ? [request mutableCopy] : [NSMutableURLRequest requestWithURL:request.URL];
-    if (!usesSDKFlow) {
-        reload.allHTTPHeaderFields = request.allHTTPHeaderFields;
-    }
+    NSMutableURLRequest *reload = [NSMutableURLRequest requestWithURL:request.URL];
+    reload.allHTTPHeaderFields = request.allHTTPHeaderFields;
     NSURL *rewrittenURL = [self wechatGatewayURLFromComponents:components queryItems:items configuration:configuration
                                                      returnURL:returnURL];
     if (rewrittenURL) {
@@ -65,18 +88,15 @@
 + (NSString *)wechatRefererForQueryItems:(NSArray<NSURLQueryItem *> *)items
                         hasTrustedReturn:(BOOL)hasTrustedReturn
                                  payment:(XYBookAudioPaymentConfiguration *)payment {
-    BOOL usesSDKFlow = payment.removesWeChatRedirectURL;
-    // feature-11 无法接管回跳时，会在 referer 之前尝试用 redirect_url 的主机名。
-    NSArray<NSString *> *refererParameters = @[ @"appReferer", @"referer" ];
-    if (!usesSDKFlow && !hasTrustedReturn) {
-        refererParameters = @[ @"appReferer", @"redirect_url", @"referer" ];
-    }
+    // 无法接管回跳时，会在 referer 之前尝试用 redirect_url 的主机名。
+    NSArray<NSString *> *refererParameters =
+        hasTrustedReturn ? @[ @"appReferer", @"referer" ] : @[ @"appReferer", @"redirect_url", @"referer" ];
     for (NSString *name in refererParameters) {
         for (NSURLQueryItem *item in items) {
             if (![item.name isEqualToString:name]) {
                 continue;
             }
-            NSString *referer = usesSDKFlow ? item.value : [self wechatSchemeRefererFromValue:item.value];
+            NSString *referer = [self wechatSchemeRefererFromValue:item.value];
             if ([self isUsableReferer:referer]) {
                 return referer;
             }
